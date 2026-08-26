@@ -1,0 +1,108 @@
+{
+  "camera_human_detected_log": {
+    "name": "Camera human detected (log only)",
+    "enabled": true,
+    "trigger": "event:camera_automation.camera_event",
+    "conditions": [
+      {"type": "equals", "target": "event.kind", "value": "human_detected"}
+    ],
+    "actions": [
+      {"type": "automation.log", "parameters": {"message": "camera_automation.camera_event kind=human_detected matched (log-only, no device action)"}}
+    ],
+    "cooldown_seconds": 0.0
+  },
+  "camera_human_detected_test_action": {
+    "name": "Camera human PRESENCE CONFIRMED -> RGB Strip light ON (P0.8.6 - gated on sustained, high-confidence detection, not a single raw frame)",
+    "enabled": true,
+    "trigger": "event:camera_automation.camera_event",
+    "conditions": [
+      {"type": "equals", "target": "event.kind", "value": "human_confirmed"},
+      {"type": "equals", "target": "event.available", "value": true},
+      {"type": "equals", "target": "event.detection_error", "value": null}
+    ],
+    "actions": [
+      {"type": "home_assistant.turn_on", "parameters": {"target": "light.wled"}}
+    ],
+    "cooldown_seconds": 30.0
+  },
+  "camera_multiple_people_log": {
+    "name": "Camera multiple people detected (log only, P0.7 Vision Context example)",
+    "enabled": true,
+    "trigger": "event:camera_automation.camera_event",
+    "conditions": [
+      {"type": "equals", "target": "event.kind", "value": "human_detected"},
+      {"type": "greater_equal", "target": "event.person_count", "value": 2}
+    ],
+    "actions": [
+      {"type": "automation.log", "parameters": {"message": "camera_automation.camera_event kind=human_detected with event.person_count >= 2 (Vision Context, log-only, no device action)"}}
+    ],
+    "cooldown_seconds": 0.0
+  },
+  "camera_test_automation_safety_action": {
+    "name": "Camera human detected -> TEST light ON (P0.8.0 safety pipeline, mock-only test entity)",
+    "enabled": true,
+    "trigger": "event:camera_automation.camera_event",
+    "conditions": [
+      {"type": "equals", "target": "event.kind", "value": "human_detected"},
+      {"type": "equals", "target": "event.available", "value": true},
+      {"type": "equals", "target": "event.detection_error", "value": null}
+    ],
+    "actions": [
+      {"type": "home_assistant.turn_on", "parameters": {"target": "light.test_camera_automation"}}
+    ],
+    "cooldown_seconds": 30.0
+  },
+  "camera_test_automation_safety_action_off": {
+    "name": "Camera human cleared -> TEST light OFF (P0.8.2 safety pipeline, mock-only test entity)",
+    "enabled": true,
+    "trigger": "event:camera_automation.camera_event",
+    "conditions": [
+      {"type": "equals", "target": "event.kind", "value": "human_cleared"},
+      {"type": "equals", "target": "event.available", "value": true},
+      {"type": "equals", "target": "event.detection_error", "value": null}
+    ],
+    "actions": [
+      {"type": "home_assistant.turn_off", "parameters": {"target": "light.test_camera_automation"}}
+    ],
+    "cooldown_seconds": 30.0
+  },
+  "camera_wled_human_cleared_off": {
+    "name": "Camera human CLEARED -> RGB Strip light OFF, 10s debounce (P0.8.9 - real light.wled entity; cancelled if human is re-confirmed before the delay elapses)",
+    "enabled": true,
+    "trigger": "event:camera_automation.camera_event",
+    "conditions": [
+      {"type": "equals", "target": "event.kind", "value": "human_cleared"},
+      {"type": "equals", "target": "event.available", "value": true},
+      {"type": "equals", "target": "event.detection_error", "value": null}
+    ],
+    "actions": [
+      {"type": "home_assistant.turn_off", "parameters": {"target": "light.wled", "delay_seconds": 10.0}}
+    ],
+    "cooldown_seconds": 0.0
+  },
+  "occupancy_test_log": {
+    "name": "Room occupied -> log occupancy.state context (P0.10 - diagnostic only, log-only, no device action)",
+    "enabled": true,
+    "trigger": "event:room_occupied",
+    "conditions": [
+      {"type": "equals", "target": "occupancy.state", "value": "occupied"}
+    ],
+    "actions": [
+      {"type": "automation.log", "parameters": {"message": "room_occupied fired and occupancy.state == occupied (P0.10 diagnostic, log-only, no device action)"}}
+    ],
+    "cooldown_seconds": 0.0
+  },
+  "occupancy_long_presence_test": {
+    "name": "Occupancy changed + presence >= 30s -> log long-presence context (P0.10 - diagnostic only, log-only, no device action)",
+    "enabled": true,
+    "trigger": "event:occupancy_changed",
+    "conditions": [
+      {"type": "equals", "target": "occupancy.state", "value": "occupied"},
+      {"type": "greater_equal", "target": "occupancy.presence_duration_seconds", "value": 30}
+    ],
+    "actions": [
+      {"type": "automation.log", "parameters": {"message": "occupancy_changed fired with occupancy.state == occupied and occupancy.presence_duration_seconds >= 30 (P0.10 diagnostic, log-only, no device action)"}}
+    ],
+    "cooldown_seconds": 0.0
+  }
+}

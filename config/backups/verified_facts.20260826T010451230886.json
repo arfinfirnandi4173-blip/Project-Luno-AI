@@ -1,0 +1,92 @@
+{
+  "light.bedroom_light": {
+    "entity_id": "light.bedroom_light",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-07T09:26:53.665004+00:00",
+    "request_id": "wm-ok-1"
+  },
+  "light.kamar_tidur_light_bulb": {
+    "entity_id": "light.kamar_tidur_light_bulb",
+    "value": "off",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-05T01:06:51.897369+00:00",
+    "request_id": "turn-82649-1785892011837"
+  },
+  "light.wled": {
+    "entity_id": "light.wled",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-20T14:07:39.317042+00:00",
+    "request_id": "turn-194-1787234857882"
+  },
+  "switch.fish_light": {
+    "entity_id": "switch.fish_light",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-05T08:07:41.593189+00:00",
+    "request_id": "turn-137813-1785917260442"
+  },
+  "switch.tasmota_tasmota3": {
+    "entity_id": "switch.tasmota_tasmota3",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-01T10:34:38.612160+00:00",
+    "request_id": "turn-2779-1785580478102"
+  },
+  "light.komputer": {
+    "entity_id": "light.komputer",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-16T13:26:46.629296+00:00",
+    "request_id": "turn-174-1786886805112"
+  },
+  "script.gaming_mode_on": {
+    "entity_id": "script.gaming_mode_on",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-21T17:12:10.869611+00:00",
+    "request_id": "turn-69508-1787332330060"
+  },
+  "switch.tasmota_tasmota2": {
+    "entity_id": "switch.tasmota_tasmota2",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-25T17:49:30.946980+00:00",
+    "request_id": "turn-5865-1787680170063"
+  },
+  "light.main_light": {
+    "entity_id": "light.main_light",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-21T12:01:57.344553+00:00",
+    "request_id": "turn-4604-1787313717012"
+  },
+  "switch.tasmota": {
+    "entity_id": "switch.tasmota",
+    "value": "on",
+    "verified": true,
+    "source": "tool_result",
+    "tool_name": "home_assistant",
+    "timestamp": "2026-08-25T17:48:16.261658+00:00",
+    "request_id": "turn-5264-1787680095411"
+  }
+}

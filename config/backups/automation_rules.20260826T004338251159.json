@@ -1,0 +1,64 @@
+{
+  "automation-4051-1787679811273": {
+    "name": "Back From Work",
+    "enabled": true,
+    "trigger": "event:camera_automation.camera_event",
+    "conditions": [
+      {
+        "type": "equals",
+        "target": "event.kind",
+        "value": "human_confirmed"
+      }
+    ],
+    "actions": [],
+    "cooldown_seconds": 3600.0,
+    "execution_policy": "no_partial",
+    "sequence": [
+      {
+        "type": "home_assistant.turn_on",
+        "parameters": {
+          "target": "light.main_light"
+        }
+      },
+      {
+        "type": "delay",
+        "parameters": {
+          "seconds": 0
+        }
+      },
+      {
+        "type": "home_assistant.turn_on",
+        "parameters": {
+          "target": "switch.tasmota_tasmota2"
+        }
+      },
+      {
+        "type": "delay",
+        "parameters": {
+          "seconds": 1
+        }
+      },
+      {
+        "type": "home_assistant.turn_on",
+        "parameters": {
+          "target": "light.wled"
+        }
+      },
+      {
+        "type": "delay",
+        "parameters": {
+          "seconds": 1
+        }
+      },
+      {
+        "type": "home_assistant.turn_on",
+        "parameters": {
+          "target": "light.komputer"
+        }
+      }
+    ],
+    "description": "Pulang Kerja Sore dimulai scan skitar jam 3 Sore",
+    "created_at": "2026-08-25T17:43:31.273341+00:00",
+    "updated_at": "2026-08-25T17:43:31.273341+00:00"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "Steam": "steam://open/main",
+  "Chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "Endfield": "C:\\Program Files\\GRYPHLINK\\Launcher.exe",
+  "Capcut": {
+    "path": "C:\\Users\\CZdelta\\AppData\\Local\\CapCut\\Apps\\CapCut.exe",
+    "args": ["--src1"]
+  },
+  "valoran": {
+    "path": "D:\\Games\\Riot Games\\Riot Client\\RiotClientServices.exe",
+    "args": ["--launch-product=valorant", "--launch-patchline=live"]
+  }
+}

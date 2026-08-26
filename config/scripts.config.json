@@ -1,0 +1,23 @@
+{
+  "gaming mod": {
+    "entity_id": "script.gaming_mode_on",
+    "description": "dims the lights to red/purple and switches the PC RGB to gaming colors",
+    "feedback": "Gaming mode activated!",
+    "aliases": ["mode gaming"],
+    "ask_open_app": true
+  },
+  "Sleep": {
+    "entity_id": "script.sleep",
+    "description": "turn off main light,turn off aquascape,turn off komputer,turn on wled sleep priset",
+    "feedback": "Good Night And Good dream",
+    "aliases": "Good night"
+
+  },
+  "Going Out":{
+    "entity_id":"script.going_out",
+    "description":"turn off all devaice",
+    "feedback":"Im Waiting For You In Here Vinn",
+    "aliases": "Im Leaving"
+
+  }
+}

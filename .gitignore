@@ -1,0 +1,43 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Testing / cache
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Local recovery / temporary data
+recovery/
+
+# Large archives
+*.zip
+
+# Local model files
+*.pt
+*.onnx
+*.safetensors
+
+# OS
+.DS_Store
+Thumbs.db

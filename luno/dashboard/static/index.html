@@ -1,0 +1,3470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luno Runtime Dashboard</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121821;
+    --panel-2: #171f2b;
+    --border: #232c3a;
+    --text: #e6edf3;
+    --text-dim: #8b98a9;
+    --accent: #5aa8ff;
+    --green: #3fbf6a;
+    --yellow: #e0b23e;
+    --red: #e5534b;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
+  a { color: var(--accent); }
+  #offline-banner { display: none; background: var(--red); color: white; text-align: center; padding: 8px; font-weight: 600; position: sticky; top: 0; z-index: 50; }
+  #offline-banner.show { display: block; }
+  .app { display: flex; min-height: 100vh; }
+  nav.sidebar { width: 210px; flex: none; background: var(--panel); border-right: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  nav.sidebar .brand { font-weight: 700; font-size: 16px; padding: 0 16px 16px; color: var(--accent); }
+  nav.sidebar .brand small { display: block; color: var(--text-dim); font-weight: 400; font-size: 11px; margin-top: 2px; }
+  nav.sidebar button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: none; color: var(--text-dim); padding: 9px 16px; font-size: 13px; cursor: pointer; border-left: 3px solid transparent; }
+  nav.sidebar button:hover { color: var(--text); background: var(--panel-2); }
+  nav.sidebar button.active { color: var(--text); background: var(--panel-2); border-left-color: var(--accent); font-weight: 600; }
+  nav.sidebar .nav-group { margin-bottom: 2px; }
+  nav.sidebar .nav-group-title { padding: 10px 16px 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: var(--text-dim); cursor: pointer; }
+  nav.sidebar .nav-group-title:hover { color: var(--text); background: none; }
+  nav.sidebar .nav-group-caret { display: inline-block; font-size: 9px; transition: transform 0.15s ease; }
+  nav.sidebar .nav-group.collapsed .nav-group-caret { transform: rotate(-90deg); }
+  nav.sidebar .nav-group.collapsed .nav-group-items { display: none; }
+  nav.sidebar .nav-group-items button[data-panel] { padding-left: 26px; }
+  #nav-toggle { display: none; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; width: 40px; height: 40px; font-size: 18px; cursor: pointer; }
+  #nav-scrim { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 40; }
+  #nav-scrim.show { display: block; }
+  main { flex: 1; padding: 20px 26px; max-width: 1200px; }
+  h1 { font-size: 19px; margin: 0 0 16px; }
+  h2 { font-size: 14px; margin: 0 0 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card .label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .card .value { font-size: 18px; font-weight: 600; }
+  .card .value.small { font-size: 13px; font-weight: 500; font-family: var(--mono); word-break: break-all; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  table.wrap { table-layout: fixed; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12.5px; vertical-align: top; }
+  td { word-break: break-word; }
+  th { color: var(--text-dim); font-weight: 600; font-size: 11px; text-transform: uppercase; background: var(--panel-2); }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge.ok, .badge.running, .badge.healthy, .badge.true { background: rgba(63,191,106,0.18); color: var(--green); }
+  .badge.warn, .badge.restarting, .badge.degraded { background: rgba(224,178,62,0.18); color: var(--yellow); }
+  .badge.error, .badge.failed, .badge.stopped, .badge.false, .badge.disabled { background: rgba(229,83,75,0.18); color: var(--red); }
+  .status-banner { display: block; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.4; }
+  .status-banner-ok { background: rgba(63,191,106,0.12); color: var(--green); }
+  .status-banner-warn { background: rgba(224,178,62,0.12); color: var(--yellow); }
+  .status-banner-error { background: rgba(229,83,75,0.12); color: var(--red); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  input[type=text], select { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 10px; font-size: 13px; }
+  button.btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+  button.btn:hover { border-color: var(--accent); color: var(--accent); }
+  button.btn.danger:hover { border-color: var(--red); color: var(--red); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #06111f; font-weight: 600; }
+  .controls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .log-line { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; padding: 3px 0; border-bottom: 1px solid var(--border); }
+  .log-line.level-ERROR { color: var(--red); }
+  .log-line.level-WARNING { color: var(--yellow); }
+  .stream-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; max-height: 560px; overflow-y: auto; }
+  .muted { color: var(--text-dim); }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  pre.block { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+  /* -- Brain Debugger (Memory Decision Trace / Retrieval Funnel / Topic
+     Timeline / Quality Metrics / Voice Pipeline / Latency Timeline) - own
+     subtab classes so this panel's click handler never collides with the
+     Memory Dashboard panel's own global `.subtab-btn` listener above. --- */
+  .dbg-subtab-btn { background: none; border: none; color: var(--text-dim); padding: 8px 14px; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .dbg-subtab-btn:hover { color: var(--text); }
+  .dbg-subtab-btn.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .dbg-subtab-panel { display: none; }
+  .dbg-subtab-panel.active { display: block; }
+  .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-family: var(--mono); font-size: 12px; }
+  .funnel-row .funnel-label { width: 150px; color: var(--text-dim); flex: none; }
+  .funnel-row .funnel-track { flex: 1; background: var(--panel-2); border-radius: 4px; height: 16px; overflow: hidden; }
+  .funnel-row .funnel-fill { background: var(--accent); height: 100%; }
+  .funnel-row .funnel-count { width: 36px; text-align: right; flex: none; }
+  .cand-row.rendered { color: var(--green); }
+  .cand-row.not-selected { color: var(--text-dim); }
+  .topic-entry { border-left: 3px solid var(--border); padding: 4px 0 4px 10px; margin-bottom: 6px; font-size: 12.5px; }
+  .topic-entry.referenced { border-left-color: var(--green); }
+
+  /* -- Memory Dashboard ---------------------------------------------------- */
+  .subtabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .subtab-btn { background: none; border: none; color: var(--text-dim); padding: 8px 14px; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .subtab-btn:hover { color: var(--text); }
+  .subtab-btn.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .subtab-panel { display: none; }
+  .subtab-panel.active { display: block; }
+  .imp-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-family: var(--mono); font-size: 12px; }
+  .imp-bar-row .imp-label { width: 70px; color: var(--text-dim); }
+  .imp-bar-track { flex: 1; background: var(--panel-2); border-radius: 4px; height: 14px; overflow: hidden; }
+  .imp-bar-fill { background: var(--accent); height: 100%; }
+  .mem-row { cursor: pointer; }
+  .mem-row:hover td { background: var(--panel-2); }
+  .mem-text-cell { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lock-badge { color: var(--yellow); }
+  .review-group { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+  .review-group .side { padding: 8px 0; border-top: 1px dashed var(--border); }
+  .review-group .side:first-of-type { border-top: none; }
+  .history-item { padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 12.5px; }
+  .history-item:last-child { border-bottom: none; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 60; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 40px 16px; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; max-width: 640px; width: 100%; }
+  .modal-box h2 { margin-top: 0; }
+  .modal-close-row { display: flex; justify-content: flex-end; margin-top: 16px; gap: 8px; }
+  textarea.mem-edit { width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; min-height: 70px; }
+
+  /* -- P0.13 (Automation Dashboard) - own `.autom-` prefix so this
+     panel's markup/JS never collides with the Memory Dashboard's own
+     `.mem-`/`.subtab-*` classes or the Brain Debugger's `.dbg-*` ones
+     (same per-panel scoping convention this file already established). */
+  .autom-modal-box { max-width: 900px; }
+  .autom-section { margin-top: 18px; }
+  .autom-section:first-child { margin-top: 0; }
+  .autom-section > h2 { margin: 0 0 8px; }
+  .autom-hint { margin: 0 0 10px; }
+  .autom-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 8px; }
+  .autom-field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+  .autom-field.grow { flex: 1; min-width: 220px; }
+  .autom-field label { font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .autom-field input[type=text], .autom-field input[type=number], .autom-field select { width: 100%; }
+  .autom-field input[type=checkbox] { width: auto; }
+  textarea.autom-input { width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; min-height: 54px; }
+  .autom-mode-toggle { display: flex; gap: 16px; margin-bottom: 10px; font-size: 13px; }
+  .autom-mode-toggle label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .autom-step-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 4px; }
+  .autom-step-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .autom-step-title { font-weight: 600; font-size: 13px; }
+  .autom-step-icon { margin-right: 6px; }
+  .autom-step-actions { display: flex; gap: 4px; }
+  .autom-step-actions button { padding: 3px 8px; font-size: 11px; }
+  .autom-step-arrow { text-align: center; color: var(--text-dim); font-size: 15px; padding: 1px 0; line-height: 1; }
+  .autom-step-params { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+  .autom-add-row { display: flex; gap: 8px; margin-top: 8px; }
+  .autom-inline-status { font-size: 12.5px; margin-top: 10px; min-height: 18px; }
+  .autom-errors { margin-top: 8px; }
+  .autom-errors .status-banner { margin-bottom: 6px; }
+  .autom-run-badge { margin-left: 6px; }
+  .autom-desc { color: var(--text-dim); font-size: 11.5px; margin-top: 2px; max-width: 340px; white-space: normal; }
+
+  /* -- P0.15 (Dashboard UX Polish & Time Conditions) - the natural-
+     language "When X / Only between Y / -> Z" card summary under each
+     automation's name (Section 7/8). `white-space: normal` overrides
+     the mobile `table { white-space: nowrap }` rule the same way
+     `.autom-desc` above already does, so these lines still wrap. */
+  .autom-summary-line { color: var(--text-dim); font-size: 11.5px; margin-top: 2px; max-width: 380px; white-space: normal; line-height: 1.45; }
+  .autom-summary-line.autom-summary-trigger { color: var(--text); font-weight: 500; }
+  .autom-summary-line.autom-summary-more { color: var(--text-dim); font-style: italic; }
+
+  /* -- P0.15 - the human-friendly "Time" condition card (Section 6).
+     Kept visually distinct from the generic/advanced condition row so
+     the common case (a time window) never requires the user to touch
+     raw `type`/`target`/`value` fields at all. */
+  .autom-time-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .autom-time-card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .autom-time-card-title { font-weight: 600; font-size: 13px; }
+  .autom-time-active-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+  .autom-time-active-badge.on { background: rgba(63,191,106,0.15); color: var(--green); }
+  .autom-time-active-badge.off { background: rgba(224,178,62,0.12); color: var(--yellow); }
+
+  /* -- P0.14 (Advanced HA Automation Actions & Script Runner) - nested
+     `condition` (if/then/else) branch UI. Deliberately indented/boxed
+     so a `then`/`else` branch always reads as visually "inside" its
+     parent condition step, never confusable with a top-level step. */
+  .autom-cond-branches { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; width: 100%; }
+  .autom-cond-branch { flex: 1; min-width: 260px; background: var(--panel); border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; }
+  .autom-cond-branch h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.06em; color: var(--text-dim); }
+  .autom-step-card-nested { margin-bottom: 6px; padding: 8px 10px; }
+  .autom-step-card-nested .autom-step-title { font-size: 12px; }
+  .autom-json-invalid { border-color: var(--red) !important; }
+
+  .chat-wrap { display: flex; flex-direction: column; height: calc(100vh - 90px); max-width: 760px; }
+  .chat-messages { flex: 1; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .chat-bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; line-height: 1.45; white-space: pre-wrap; }
+  .chat-bubble.user { align-self: flex-end; background: var(--accent); color: #06111f; border-bottom-right-radius: 4px; }
+  .chat-bubble.assistant { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .chat-bubble.system { align-self: center; background: transparent; color: var(--text-dim); font-size: 12px; padding: 4px 10px; }
+  .chat-bubble.error { align-self: center; background: rgba(229,83,75,0.12); color: var(--red); font-size: 12.5px; border-radius: 8px; }
+  .chat-bubble .meta { display: block; font-size: 10.5px; opacity: 0.6; margin-top: 4px; }
+  .chat-status { min-height: 18px; padding: 4px 2px; font-size: 12px; }
+  .chat-session-badge { display: flex; align-items: center; gap: 8px; padding: 6px 12px; margin-bottom: 8px; border-radius: 8px; font-size: 12.5px; font-weight: 600; background: var(--panel-2); border: 1px solid var(--border); width: fit-content; }
+  .chat-session-badge.state-sleeping { color: var(--text-dim); }
+  .chat-session-badge.state-listening, .chat-session-badge.state-waiting_user { color: var(--green); border-color: var(--green); }
+  .chat-session-badge.state-thinking, .chat-session-badge.state-speaking { color: var(--accent); border-color: var(--accent); }
+  .chat-session-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .chat-inputrow { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .chat-inputrow input[type=text] { flex: 1; padding: 11px 14px; font-size: 14px; }
+  .mic-btn { font-size: 16px; }
+  .mic-btn.listening { border-color: var(--red); color: var(--red); animation: pulse 1.1s infinite; }
+  #chat-voice-toggle.active { border-color: var(--green); color: var(--green); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .typing-dots span { display: inline-block; width: 5px; height: 5px; margin-right: 2px; border-radius: 50%; background: var(--text-dim); animation: blink 1.2s infinite; }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+  /* -- mobile / phone layout --------------------------------------------- */
+  @media (max-width: 860px) {
+    .app { display: block; }
+    nav.sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: 260px; max-width: 82vw;
+      transform: translateX(-100%); transition: transform 0.2s ease; z-index: 50; box-shadow: 2px 0 18px rgba(0,0,0,0.4);
+    }
+    nav.sidebar.open { transform: translateX(0); }
+    main { padding: 66px 14px 30px; max-width: 100%; }
+    #nav-toggle { display: inline-flex; align-items: center; justify-content: center; position: fixed; top: 12px; left: 14px; z-index: 45; }
+    .grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .controls-grid { grid-template-columns: repeat(2, 1fr); }
+    table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+    .chat-wrap { height: calc(100vh - 150px); max-width: 100%; }
+    .chat-bubble { max-width: 90%; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar input[type=text], .toolbar select { width: 100%; }
+    button.btn, .chat-inputrow input, nav.sidebar button { min-height: 40px; }
+  }
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; }
+    .controls-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 17px; }
+    main { padding-left: 10px; padding-right: 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="offline-banner">Runtime Offline - attempting to reconnect...</div>
+<div class="app">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">Luno Runtime<small>Web Dashboard</small></div>
+
+    <div class="nav-group" data-group="overview">
+      <button class="nav-group-title"><span class="nav-group-caret">&#9662;</span> Overview</button>
+      <div class="nav-group-items">
+        <button data-panel="home" class="active">Home</button>
+        <button data-panel="chat">Chat</button>
+        <button data-panel="conversation">Conversation</button>
+      </div>
+    </div>
+
+    <div class="nav-group" data-group="llm">
+      <button class="nav-group-title"><span class="nav-group-caret">&#9662;</span> LLM Model</button>
+      <div class="nav-group-items">
+        <button data-panel="llm">LLM Providers</button>
+        <button data-panel="routing">Decision Engine</button>
+      </div>
+    </div>
+
+    <div class="nav-group" data-group="automation">
+      <button class="nav-group-title"><span class="nav-group-caret">&#9662;</span> Automation</button>
+      <div class="nav-group-items">
+        <button data-panel="planner">Planner</button>
+        <button data-panel="goals">Goals</button>
+        <button data-panel="toolmanager">Tool Manager</button>
+        <button data-panel="verification">Smart Home Verification</button>
+        <button data-panel="automations">Automations</button>
+        <button data-panel="automationengine">Automation Engine</button>
+      </div>
+    </div>
+
+    <div class="nav-group" data-group="memory">
+      <button class="nav-group-title"><span class="nav-group-caret">&#9662;</span> Perception &amp; Memory</button>
+      <div class="nav-group-items">
+        <button data-panel="vision">Vision</button>
+        <button data-panel="visionmemory">Vision Memory</button>
+        <button data-panel="memoryretrieval">Memory Retrieval</button>
+        <button data-panel="memory">Memory Dashboard</button>
+      </div>
+    </div>
+
+    <div class="nav-group" data-group="debugger">
+      <button class="nav-group-title"><span class="nav-group-caret">&#9662;</span> Brain Debugger</button>
+      <div class="nav-group-items">
+        <button data-panel="braindebugger">Memory &amp; Voice Debugger</button>
+      </div>
+    </div>
+
+    <div class="nav-group" data-group="system">
+      <button class="nav-group-title"><span class="nav-group-caret">&#9662;</span> System</button>
+      <div class="nav-group-items">
+        <button data-panel="modules">Modules</button>
+        <button data-panel="adapters">Adapters</button>
+        <button data-panel="events">Event Bus</button>
+        <button data-panel="logs">Logs</button>
+        <button data-panel="health">Health</button>
+        <button data-panel="statistics">Statistics</button>
+      </div>
+    </div>
+
+    <div class="nav-group" data-group="settings">
+      <button class="nav-group-title"><span class="nav-group-caret">&#9662;</span> Settings</button>
+      <div class="nav-group-items">
+        <button data-panel="controls">Controls</button>
+        <button data-panel="configuration">Configuration</button>
+        <button data-panel="debug">Debug Mode</button>
+      </div>
+    </div>
+  </nav>
+  <div id="nav-scrim"></div>
+  <main>
+    <button id="nav-toggle" aria-label="Menu">&#9776;</button>
+    <div id="panel-home" class="panel active">
+      <h1>Runtime Status</h1>
+      <div class="grid" id="home-grid"></div>
+      <h2>Live Module Status</h2>
+      <div id="home-modules"></div>
+    </div>
+
+    <div id="panel-chat" class="panel">
+      <h1>Chat</h1>
+      <div class="chat-wrap">
+        <div class="chat-session-badge" id="chat-session-badge"></div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-status muted" id="chat-status"></div>
+        <div class="chat-status muted" id="wake-listen-status"></div>
+        <div class="chat-inputrow">
+          <button class="btn mic-btn" id="chat-mic" title="Voice input (browser speech recognition) - fills the box, you press Send">&#127908;</button>
+          <button class="btn mic-btn" id="chat-wake-listen" title="Wake Listen: keeps this browser tab's mic on continuously and lets Luno's own wake-word matcher decide what to do with it - same as a real always-on microphone. Only listens while this tab stays open.">&#128266;</button>
+          <input type="text" id="chat-input" placeholder="Message Luno... (say the wake word first if she's asleep)" autocomplete="off">
+          <button class="btn" id="chat-voice-toggle" title="Toggle voice reply (needs FISH_AUDIO_BACKEND=real)">&#128264;</button>
+          <button class="btn primary" id="chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-modules" class="panel">
+      <h1>Modules</h1>
+      <div id="modules-table"></div>
+    </div>
+
+    <div id="panel-adapters" class="panel">
+      <h1>Adapters</h1>
+      <div id="adapters-table"></div>
+    </div>
+
+    <div id="panel-llm" class="panel">
+      <h1>LLM Providers</h1>
+      <div class="grid" id="llm-grid"></div>
+      <div class="toolbar" id="llm-switch-toolbar" style="margin-top:16px"></div>
+      <div id="llm-switch-status" style="margin-top:8px"></div>
+      <h2 style="margin-top:16px">Provider Health</h2>
+      <div id="llm-health-table"></div>
+      <h2 style="margin-top:16px">Provider Capabilities (active)</h2>
+      <div class="grid" id="llm-capabilities-grid"></div>
+      <h2 style="margin-top:16px">Usage &amp; Cost by Provider</h2>
+      <div id="llm-stats-table"></div>
+    </div>
+
+    <div id="panel-conversation" class="panel">
+      <h1>Conversation Status</h1>
+      <div class="grid" id="conversation-grid"></div>
+    </div>
+
+    <div id="panel-planner" class="panel">
+      <h1>Planner</h1>
+      <div id="planner-body"></div>
+    </div>
+
+    <div id="panel-goals" class="panel">
+      <h1>Goals</h1>
+      <div class="grid" id="goals-grid"></div>
+      <h2 style="margin-top:16px">Awaiting Confirmation</h2>
+      <div id="goals-awaiting"></div>
+      <h2 style="margin-top:16px">Active / Queued</h2>
+      <div id="goals-active"></div>
+      <h2 style="margin-top:16px">Completed</h2>
+      <div id="goals-completed"></div>
+      <h2 style="margin-top:16px">Rejected</h2>
+      <div id="goals-rejected"></div>
+    </div>
+
+    <div id="panel-toolmanager" class="panel">
+      <h1>Tool Manager</h1>
+      <div id="toolmanager-body"></div>
+    </div>
+
+    <div id="panel-automations" class="panel">
+      <h1>Automations</h1>
+      <p class="muted">Create, edit, validate, run, enable/disable, and delete automation rules through the existing AutomationEngine (the P0.12 API) - this page never edits <code>config/automation_rules.json</code> or Home Assistant directly.</p>
+      <div class="toolbar">
+        <button class="btn primary" id="autom-new-btn">+ New Automation</button>
+      </div>
+      <div id="autom-list-body"><p class="muted">Loading automations&hellip;</p></div>
+    </div>
+
+    <div id="autom-modal-overlay" class="modal-overlay">
+      <div class="modal-box autom-modal-box" id="autom-modal-box"></div>
+    </div>
+
+    <div id="panel-automationengine" class="panel">
+      <h1>Automation Engine</h1>
+      <p class="muted">Read-only runtime status. To create or edit automations, use the <strong>Automations</strong> page above.</p>
+      <div id="automation-body"></div>
+    </div>
+
+    <div id="panel-vision" class="panel">
+      <h1>Vision</h1>
+      <div class="grid" id="vision-grid"></div>
+      <h2 style="margin-top:16px">Currently Tracked</h2>
+      <div id="vision-tracked"></div>
+      <h2 style="margin-top:16px">Latest Observations</h2>
+      <ul id="vision-observations"></ul>
+    </div>
+
+    <div id="panel-visionmemory" class="panel">
+      <h1>Vision Memory</h1>
+      <div class="toolbar">
+        <input type="text" id="vm-search" placeholder="Search observations...">
+      </div>
+      <div id="visionmemory-body"></div>
+    </div>
+
+    <div id="panel-memoryretrieval" class="panel">
+      <h1>Memory Retrieval</h1>
+      <div class="toolbar">
+        <input type="text" id="mr-query" placeholder="Preview a question..." style="min-width:320px">
+        <button class="btn primary" id="mr-run">Preview</button>
+      </div>
+      <div id="memoryretrieval-body"></div>
+    </div>
+
+    <div id="panel-memory" class="panel">
+      <h1>Memory Dashboard</h1>
+      <p class="muted">Observer + control surface over Luno's existing long-term memory store (<code>luno/memory.py</code>) - not a second memory system. Archive is reversible; Delete is permanent and always asks first.</p>
+      <div class="subtabs">
+        <button class="subtab-btn active" data-subtab="mem-overview">Overview</button>
+        <button class="subtab-btn" data-subtab="mem-browse">Browse &amp; Search</button>
+        <button class="subtab-btn" data-subtab="mem-review">Needs Review</button>
+        <button class="subtab-btn" data-subtab="mem-maintenance">Maintenance</button>
+      </div>
+
+      <div id="mem-overview" class="subtab-panel active">
+        <div class="grid" id="mem-overview-grid"></div>
+        <h2 style="margin-top:16px">Importance Distribution</h2>
+        <div id="mem-importance-bars"></div>
+        <div class="grid" style="margin-top:16px">
+          <div class="card"><div class="label">Categories</div><div id="mem-categories" class="value small"></div></div>
+          <div class="card"><div class="label">Sources</div><div id="mem-sources" class="value small"></div></div>
+        </div>
+      </div>
+
+      <div id="mem-browse" class="subtab-panel">
+        <div class="toolbar">
+          <input type="text" id="mem-search" placeholder="Search memory...">
+          <select id="mem-f-lifecycle"><option value="all">Lifecycle: All</option><option value="active">Active</option><option value="stale">Stale</option><option value="archived">Archived</option></select>
+          <select id="mem-f-importance"><option value="all">Importance: All</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4 (Core)</option></select>
+          <select id="mem-f-category"><option value="all">Category: All</option><option value="preference">Preference</option><option value="personal_fact">Personal Fact</option><option value="technical_fact">Technical Fact</option><option value="instruction">Instruction</option><option value="project_context">Project Context</option><option value="other">Other</option></select>
+          <select id="mem-f-source"><option value="all">Source: All</option><option value="user_explicit">User Explicit</option><option value="llm_auto">LLM Auto</option></select>
+          <select id="mem-f-conflict"><option value="all">Conflict: All</option><option value="none">No conflict</option><option value="ambiguous_conflict">Ambiguous (unresolved)</option><option value="correction">History: correction</option><option value="temporal_change">History: temporal change</option><option value="refinement">History: refinement</option></select>
+          <select id="mem-f-sort"><option value="">Sort: Recency (default)</option><option value="most_used">Most Used</option><option value="most_useful">Most Useful</option><option value="low_usefulness">Low Usefulness</option><option value="needs_review">Needs Review</option><option value="recently_reinforced">Recently Reinforced</option><option value="highest_evaluation">Highest Evaluation</option><option value="lowest_evaluation">Lowest Evaluation</option><option value="low_confidence">Low Confidence</option><option value="recently_evaluated">Recently Evaluated</option></select>
+        </div>
+        <div id="mem-list-body"></div>
+        <div class="toolbar" style="margin-top:10px">
+          <button class="btn" id="mem-page-prev">&larr; Prev</button>
+          <span class="muted" id="mem-page-info"></span>
+          <button class="btn" id="mem-page-next">Next &rarr;</button>
+        </div>
+      </div>
+
+      <div id="mem-review" class="subtab-panel">
+        <p class="muted">Unresolved ambiguous conflicts - multiple memories may describe conflicting truths. Nothing here is auto-resolved; pick an action per memory.</p>
+        <div id="mem-review-body"></div>
+      </div>
+
+      <div id="mem-maintenance" class="subtab-panel">
+        <p class="muted">Analysis-only until you explicitly apply it. Preview first, then Apply Maintenance if the proposed actions look right.</p>
+        <div class="toolbar">
+          <button class="btn primary" id="mem-maint-preview">Preview</button>
+          <button class="btn danger" id="mem-maint-apply" disabled>Apply Maintenance</button>
+        </div>
+        <div id="mem-maintenance-body"></div>
+      </div>
+    </div>
+
+    <div id="mem-modal-overlay" class="modal-overlay">
+      <div class="modal-box" id="mem-modal-box"></div>
+    </div>
+
+    <div id="panel-braindebugger" class="panel">
+      <h1>Brain Debugger</h1>
+      <p class="muted">Read-only observability over decisions Luno's existing memory/retrieval/ranking and voice pipelines already made - this panel never re-runs retrieval, re-ranks anything, or changes what gets said or spoken. It only explains what already happened, sourced from the same telemetry the production path itself recorded.</p>
+      <div class="subtabs">
+        <button class="dbg-subtab-btn active" data-dbgtab="dbg-trace">Decision Trace</button>
+        <button class="dbg-subtab-btn" data-dbgtab="dbg-funnel">Retrieval Funnel</button>
+        <button class="dbg-subtab-btn" data-dbgtab="dbg-topics">Topic Timeline</button>
+        <button class="dbg-subtab-btn" data-dbgtab="dbg-quality">Quality Metrics</button>
+        <button class="dbg-subtab-btn" data-dbgtab="dbg-voice">Voice Pipeline</button>
+        <button class="dbg-subtab-btn" data-dbgtab="dbg-latency">Latency Timeline</button>
+      </div>
+
+      <div id="dbg-trace" class="dbg-subtab-panel active">
+        <div class="toolbar">
+          <select id="dbg-turn-picker"><option value="">Most recent turn</option></select>
+          <button class="btn" id="dbg-turn-refresh">Refresh Turn List</button>
+        </div>
+        <div id="dbg-trace-body"></div>
+      </div>
+
+      <div id="dbg-funnel" class="dbg-subtab-panel">
+        <p class="muted">Counts at every stage the current turn's query passed through, in order. A stage that drops to 0 is exactly where "why didn't Luno remember this?" happened.</p>
+        <div id="dbg-funnel-body"></div>
+      </div>
+
+      <div id="dbg-topics" class="dbg-subtab-panel">
+        <div class="toolbar">
+          <input type="text" id="dbg-topic-conv" placeholder="conversation_id (blank = most recent)">
+          <button class="btn" id="dbg-topic-run">Load</button>
+        </div>
+        <div id="dbg-topics-body"></div>
+      </div>
+
+      <div id="dbg-quality" class="dbg-subtab-panel">
+        <div id="dbg-quality-body"></div>
+      </div>
+
+      <div id="dbg-voice" class="dbg-subtab-panel">
+        <div class="toolbar">
+          <input type="text" id="dbg-voice-reqid" placeholder="request_id (blank = most recent turn)">
+          <button class="btn" id="dbg-voice-run">Load</button>
+        </div>
+        <div id="dbg-voice-body"></div>
+      </div>
+
+      <div id="dbg-latency" class="dbg-subtab-panel">
+        <p class="muted">Per-turn latency breakdown across recent voice turns - distinguishes LLM time from first-audio time from total playback, without guessing at which one is the actual bottleneck.</p>
+        <div id="dbg-latency-body"></div>
+      </div>
+    </div>
+
+    <div id="panel-routing" class="panel">
+      <h1>Decision Engine</h1>
+      <div class="grid" id="routing-grid"></div>
+      <h2 style="margin-top:16px">Decisions by Provider / Intent</h2>
+      <div id="routing-breakdown"></div>
+      <h2 style="margin-top:16px">Sticky Conversations (Provider Affinity)</h2>
+      <div id="routing-sticky"></div>
+      <h2 style="margin-top:16px">Recent Routing Decisions</h2>
+      <div id="routing-recent"></div>
+    </div>
+
+    <div id="panel-verification" class="panel">
+      <h1>Smart Home Verification</h1>
+      <p class="muted">Every real Home Assistant on/off/toggle command, and whether it was actually, verifiably carried out - never a blanket "confirm this succeeded". See <code>luno/tool_manager/builtin/real_home_assistant.py</code>.</p>
+      <div class="grid" id="verification-grid"></div>
+      <h2 style="margin-top:16px">Verification History</h2>
+      <div id="verification-history"></div>
+    </div>
+
+    <div id="panel-events" class="panel">
+      <h1>Event Bus</h1>
+      <div class="toolbar">
+        <input type="text" id="ev-filter" placeholder="Filter by type...">
+        <input type="text" id="ev-search" placeholder="Search...">
+        <button class="btn" id="ev-pause">Pause</button>
+        <button class="btn" id="ev-clear">Clear</button>
+        <label style="color:var(--text-dim);font-size:12px"><input type="checkbox" id="ev-autoscroll" checked> auto-scroll</label>
+      </div>
+      <div class="stream-box" id="events-stream"></div>
+    </div>
+
+    <div id="panel-logs" class="panel">
+      <h1>Logs</h1>
+      <div class="toolbar">
+        <input type="text" id="log-module" placeholder="Module...">
+        <select id="log-level">
+          <option value="">All levels</option>
+          <option>INFO</option>
+          <option>WARNING</option>
+          <option>ERROR</option>
+        </select>
+        <input type="text" id="log-search" placeholder="Search...">
+        <input type="text" id="log-reqid" placeholder="Request ID...">
+        <button class="btn" id="log-pause">Pause</button>
+        <button class="btn" id="log-clear">Clear</button>
+        <a class="btn" href="/api/logs/download" download>Download</a>
+      </div>
+      <div class="stream-box" id="logs-stream"></div>
+    </div>
+
+    <div id="panel-health" class="panel">
+      <h1>Health</h1>
+      <div class="grid" id="health-grid"></div>
+      <h2>Module Health</h2>
+      <div id="health-modules"></div>
+    </div>
+
+    <div id="panel-controls" class="panel">
+      <h1>Controls</h1>
+      <div class="controls-grid" id="controls-grid"></div>
+      <p id="controls-result" class="muted"></p>
+    </div>
+
+    <div id="panel-configuration" class="panel">
+      <h1>Configuration</h1>
+      <div class="toolbar"><input type="text" id="cfg-search" placeholder="Search settings..."></div>
+      <div id="configuration-body"></div>
+    </div>
+
+    <div id="panel-debug" class="panel">
+      <h1>Debug Mode</h1>
+      <div class="pill-row">
+        <button class="btn primary" id="debug-enable">Enable Debug</button>
+        <button class="btn danger" id="debug-disable">Disable Debug</button>
+        <span id="debug-status" class="muted"></span>
+      </div>
+      <p class="muted">When enabled, the Event Bus stream below shows full raw event payloads (data field expanded) instead of a compact summary. LLM prompt preview reuses the same context the console's <code>/context</code> command shows; raw prompt text/token usage/adapter traffic are only surfaced where an existing event already carries them (LLM Finished carries token usage + latency) - nothing here is fabricated.</p>
+      <h2>LLM Prompt Preview (Context Builder)</h2>
+      <pre class="block" id="debug-context"></pre>
+      <h2>Raw Event Firehose</h2>
+      <div class="stream-box" id="debug-stream"></div>
+    </div>
+
+    <div id="panel-statistics" class="panel">
+      <h1>Statistics</h1>
+      <div class="grid" id="statistics-grid"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const $ = (sel, root) => (root || document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+// -- navigation ------------------------------------------------------------
+// Scoped to `[data-panel]` specifically (not every `nav.sidebar button`) -
+// the category headers below (`.nav-group-title`) are ALSO `<button>`s
+// inside `nav.sidebar` but have no `data-panel`/target panel of their own,
+// they only collapse/expand their group (see the next block).
+$$('nav.sidebar button[data-panel]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('nav.sidebar button[data-panel]').forEach(b => b.classList.remove('active'));
+    $$('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('#panel-' + btn.dataset.panel).classList.add('active');
+    onPanelShown(btn.dataset.panel);
+    closeMobileNav();
+  });
+});
+
+// -- sidebar categories (collapsible) + mobile slide-in drawer ---------------
+$$('.nav-group-title').forEach(title => {
+  title.addEventListener('click', () => title.closest('.nav-group').classList.toggle('collapsed'));
+});
+function openMobileNav() { $('#sidebar').classList.add('open'); $('#nav-scrim').classList.add('show'); }
+function closeMobileNav() { $('#sidebar').classList.remove('open'); $('#nav-scrim').classList.remove('show'); }
+$('#nav-toggle').addEventListener('click', () => {
+  $('#sidebar').classList.contains('open') ? closeMobileNav() : openMobileNav();
+});
+$('#nav-scrim').addEventListener('click', closeMobileNav);
+
+// -- offline detection -------------------------------------------------------
+let offline = false;
+function setOffline(isOffline) {
+  if (isOffline === offline) return;
+  offline = isOffline;
+  $('#offline-banner').classList.toggle('show', isOffline);
+}
+
+async function api(path, opts) {
+  try {
+    const res = await fetch(path, opts);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    setOffline(false);
+    return await res.json();
+  } catch (ex) {
+    setOffline(true);
+    throw ex;
+  }
+}
+
+function badge(text, cls) {
+  cls = cls || String(text).toLowerCase();
+  return `<span class="badge ${cls}">${text}</span>`;
+}
+
+function card(label, value, small) {
+  return `<div class="card"><div class="label">${label}</div><div class="value${small ? ' small' : ''}">${value}</div></div>`;
+}
+
+function fmtBool(v) { return v ? badge('yes', 'ok') : badge('no', 'error'); }
+function esc(s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+// P0.13 - every other panel in this file only ever templates free text into
+// TEXT-NODE position (where `esc()`'s `&<>`-only escaping is sufficient).
+// The Automation editor is the first panel that pre-fills free text (name/
+// description/entity ids/etc.) into quoted `value="..."` HTML attributes,
+// which additionally requires quote-escaping to stay XSS-safe (`esc()`
+// alone would let a `"` in a name break out of the attribute). `escAttr()`
+// is a strict superset of `esc()` - safe to use anywhere `esc()` is used,
+// required anywhere a value is templated into a quoted attribute.
+function escAttr(s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// -- Home --------------------------------------------------------------------
+async function loadHome() {
+  try {
+    const s = await api('/api/status');
+    $('#home-grid').innerHTML = [
+      card('Version', esc(s.version) + ' (' + esc(s.build) + ')'),
+      card('Uptime', Math.round(s.uptime_s) + 's'),
+      card('Runtime State', badge(s.runtime_state)),
+      card('Wake Words', esc((s.wake_words || []).join(', ') || 'none')),
+      card('Current LLM', esc(s.current_llm), true),
+      card('Current TTS', esc(s.current_tts), true),
+      card('Current Vision Model', esc(s.current_vision_model), true),
+      card('Current Whisper Model', esc(s.current_whisper_model), true),
+      card('Memory Retrieval Mode', esc(s.memory_retrieval_mode)),
+      card('Interrupt Enabled', fmtBool(s.interrupt_enabled)),
+      card('Planner Enabled', fmtBool(s.planner_enabled)),
+      card('Tool Manager', fmtBool(s.tool_manager_enabled)),
+      card('Home Assistant', fmtBool(s.home_assistant_configured) + ' (' + esc(s.home_assistant_backend) + ')'),
+      card('Unity', esc(s.unity_backend)),
+      card('Overall Health', s.healthy ? badge('healthy', 'ok') : badge('degraded', 'warn')),
+    ].join('');
+  } catch (e) { /* offline banner already shown */ }
+
+  try {
+    const m = await api('/api/modules');
+    $('#home-modules').innerHTML = renderModulesTable(m.modules);
+  } catch (e) {}
+}
+
+function renderModulesTable(modules) {
+  const rows = modules.map(m => `<tr>
+    <td>${esc(m.name)}</td>
+    <td>${badge(m.state)}</td>
+    <td>${m.restart_count}</td>
+    <td>${esc(m.last_error || '-')}</td>
+    <td>${m.healthy ? badge('healthy', 'ok') : badge('unhealthy', 'error')}</td>
+  </tr>`).join('');
+  return `<table><thead><tr><th>Module</th><th>State</th><th>Restarts</th><th>Last Error</th><th>Health</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function loadModules() {
+  try { const m = await api('/api/modules'); $('#modules-table').innerHTML = renderModulesTable(m.modules); } catch (e) {}
+}
+
+async function loadAdapters() {
+  try {
+    const a = await api('/api/adapters');
+    const rows = a.adapters.map(x => `<tr>
+      <td>${esc(x.name)}</td>
+      <td>${x.connected ? badge('connected', 'ok') : badge('disconnected', 'error')}</td>
+      <td>${badge(x.module_state)}</td>
+      <td>${x.events_in} / ${x.events_out}</td>
+      <td>${x.consecutive_failures}</td>
+      <td>${x.restart_count}</td>
+      <td>${x.avg_latency_ms != null ? x.avg_latency_ms.toFixed(1) + 'ms' : '-'}</td>
+      <td>${esc(x.last_error || '-')}</td>
+    </tr>`).join('');
+    $('#adapters-table').innerHTML = `<table><thead><tr><th>Adapter</th><th>Status</th><th>Module State</th><th>In/Out</th><th>Failures</th><th>Restarts</th><th>Avg Latency</th><th>Last Error</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) {}
+}
+
+// -- LLM Providers -------------------------------------------------------------
+const LLM_PROVIDER_NAMES = ['openrouter', 'openai', 'gemini', 'anthropic', 'local'];
+
+function fmtCost(v) { return v == null ? '-' : '$' + Number(v).toFixed(4); }
+function fmtMs(v) { return v == null ? '-' : Number(v).toFixed(1) + 'ms'; }
+
+function healthBadgeClass(state) {
+  if (state === 'healthy') return 'ok';
+  if (state === 'warning' || state === 'rate_limited' || state === 'timeout') return 'warn';
+  if (state === 'offline' || state === 'auth_failed') return 'error';
+  return '';
+}
+
+async function loadLLM() {
+  try {
+    const s = await api('/api/llm');
+    if (!s.available) { $('#llm-grid').innerHTML = card('LLM Manager', 'not registered'); return; }
+
+    $('#llm-grid').innerHTML = [
+      card('Current Provider', badge(s.current_provider || '-')),
+      card('Current Model', esc(s.current_model || '-'), true),
+      card('Streaming', fmtBool(s.streaming_enabled)),
+      card('Fallback', fmtBool(s.fallback_enabled)),
+      card('Priority Order', esc((s.priority || []).join(' -> ')), true),
+      card('Avg Response Time', fmtMs(s.avg_response_time_ms)),
+      card('Requests (active provider)', s.requests || 0),
+      card('Total Tokens (active provider)', s.total_tokens || 0),
+      card('Estimated Cost (active provider)', fmtCost(s.estimated_cost_usd) + (s.cost_is_estimate_complete ? '' : ' (partial - some models unpriced)')),
+      card('Last Fallback', s.last_fallback ? `${esc(s.last_fallback.from_provider)} -> ${esc(s.last_fallback.to_provider)}` : 'none', true),
+      card('In-Flight Requests', s.inflight_requests || 0),
+    ].join('');
+
+    const toolbar = LLM_PROVIDER_NAMES.map(p => {
+      const isActive = p === s.current_provider;
+      const isConfigured = (s.configured_providers || []).includes(p);
+      return `<button class="btn${isActive ? ' primary' : ''}" data-llm-provider="${p}" ${isConfigured ? '' : 'disabled title="not configured"'}>${isActive ? '✓ ' : ''}${p}</button>`;
+    }).join(' ');
+    $('#llm-switch-toolbar').innerHTML = toolbar;
+    $$('#llm-switch-toolbar button').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const provider = btn.dataset.llmProvider;
+        btn.disabled = true;
+        const statusEl = $('#llm-switch-status');
+        try {
+          const result = await api('/api/controls/switch_llm_provider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider }) });
+          if (statusEl) {
+            const cls = result.ok === false ? 'error' : (result.warning ? 'warn' : 'ok');
+            statusEl.innerHTML = `<div class="status-banner status-banner-${cls}">${esc(result.message || (result.ok ? 'Done.' : 'Failed.'))}</div>`;
+          }
+        } catch (e) {
+          if (statusEl) statusEl.innerHTML = `<div class="status-banner status-banner-error">Request failed: ${esc(String(e))}</div>`;
+        }
+        loadLLM();
+      });
+    });
+
+    const health = s.health || {};
+    const healthRows = Object.keys(health).map(name => {
+      const h = health[name];
+      return `<tr>
+        <td>${esc(name)}</td>
+        <td>${badge(h.state, healthBadgeClass(h.state))}</td>
+        <td>${esc(h.message || '-')}</td>
+        <td>${fmtMs(h.latency_ms)}</td>
+      </tr>`;
+    }).join('');
+    $('#llm-health-table').innerHTML = `<table><thead><tr><th>Provider</th><th>State</th><th>Message</th><th>Latency</th></tr></thead><tbody>${healthRows || '<tr><td colspan="4">no health data yet</td></tr>'}</tbody></table>`;
+
+    const caps = s.capabilities || {};
+    $('#llm-capabilities-grid').innerHTML = [
+      card('Streaming', fmtBool(caps.streaming)), card('Tools', fmtBool(caps.tools)),
+      card('Images', fmtBool(caps.images)), card('Vision', fmtBool(caps.vision)),
+      card('Reasoning', fmtBool(caps.reasoning)), card('Audio', fmtBool(caps.audio)),
+      card('Long Context', fmtBool(caps.long_context)), card('Max Context Tokens', caps.max_context_tokens || '-'),
+    ].join('');
+
+    const statsByProvider = s.stats_by_provider || {};
+    const statsRows = Object.keys(statsByProvider).map(name => {
+      const b = statsByProvider[name];
+      return `<tr>
+        <td>${esc(name)}</td><td>${b.requests}</td><td>${b.failures}</td>
+        <td>${b.total_tokens}</td><td>${fmtCost(b.estimated_cost_usd)}</td>
+      </tr>`;
+    }).join('');
+    $('#llm-stats-table').innerHTML = `<table><thead><tr><th>Provider</th><th>Requests</th><th>Failures</th><th>Total Tokens</th><th>Estimated Cost</th></tr></thead><tbody>${statsRows || '<tr><td colspan="5">no requests yet</td></tr>'}</tbody></table>`;
+  } catch (e) {}
+}
+
+async function loadConversation() {
+  try {
+    const c = await api('/api/conversation');
+    $('#conversation-grid').innerHTML = [
+      card('State', badge(c.state)),
+      card('Current Request ID', esc(c.current_request_id || '-'), true),
+      card('Current Mode', esc(c.current_mode || '-')),
+      card('Conversation Age', c.conversation_age_s != null ? c.conversation_age_s.toFixed(1) + 's' : '-'),
+      card('Wake Count', c.wake_count != null ? c.wake_count : '-'),
+      card('Emergency Active', fmtBool(c.emergency_active)),
+      card('Awaiting Confirmation', fmtBool(c.awaiting_confirmation)),
+    ].join('');
+  } catch (e) {}
+}
+
+async function loadPlanner() {
+  try {
+    const p = await api('/api/planner');
+    if (!p.has_plan) { $('#planner-body').innerHTML = '<p class="muted">No plan created yet.</p>'; return; }
+    const plan = p.plan, prog = p.progress;
+    const taskRows = plan.tasks.map(t => `<tr>
+      <td>${esc(t.label || t.tool_call.tool + '.' + t.tool_call.action)}</td>
+      <td>${badge(t.status)}</td>
+      <td>${esc((t.depends_on || []).join(', ') || '-')}</td>
+      <td>${t.attempts}</td>
+      <td>${fmtBool(t.rolled_back)}</td>
+      <td>${esc(t.error || '-')}</td>
+    </tr>`).join('');
+    $('#planner-body').innerHTML = `
+      <div class="grid">
+        ${card('Plan', esc(plan.id), true)}
+        ${card('Status', badge(plan.status))}
+        ${card('Progress', prog.percent_complete + '%')}
+        ${card('Completed', prog.completed_tasks.length)}
+        ${card('Running', prog.current_tasks.length)}
+        ${card('Failed', prog.failed_tasks.length)}
+      </div>
+      <pre class="block">"${esc(plan.source_request)}"</pre>
+      <table><thead><tr><th>Task</th><th>Status</th><th>Dependencies</th><th>Retries</th><th>Rolled Back</th><th>Error</th></tr></thead><tbody>${taskRows}</tbody></table>`;
+  } catch (e) {}
+}
+
+async function loadToolManager() {
+  try {
+    const t = await api('/api/tool_manager');
+    const r = t.last_result;
+    const historyRows = (t.history || []).slice().reverse().map(h => `<tr>
+      <td>${new Date(h.received_at * 1000).toLocaleTimeString()}</td>
+      <td>${esc(h.type)}</td>
+      <td>${esc(h.data.tool || '-')}</td>
+      <td>${esc(JSON.stringify(h.data))}</td>
+    </tr>`).join('');
+    $('#toolmanager-body').innerHTML = `
+      <div class="grid">
+        ${card('Current Tool', esc(t.current_tool || '-'))}
+        ${card('Execution Time', r ? (r.execution_time_ms || 0).toFixed(1) + 'ms' : '-')}
+        ${card('Status', r ? badge(r.status || (r.success ? 'ok' : 'failed')) : '-')}
+      </div>
+      <h2>History</h2>
+      <table><thead><tr><th>Time</th><th>Event</th><th>Tool</th><th>Data</th></tr></thead><tbody>${historyRows}</tbody></table>`;
+  } catch (e) {}
+}
+
+async function loadAutomation() {
+  try {
+    const a = await api('/api/automation');
+    if (!a.available) {
+      $('#automation-body').innerHTML = card('Automation', esc(a.error || 'not available'));
+      return;
+    }
+    const statusBadge = {idle: 'ok', running: 'warn'};
+    const rows = (a.automations || []).map(r => {
+      const trig = r.trigger ? (r.trigger.type === 'event' ? `event:${esc(r.trigger.parameters.event_name || '')}` :
+        r.trigger.type === 'time' ? `time:${esc(r.trigger.parameters.time || '')}` : 'manual') : '-';
+      const last = r.last_execution;
+      const lastResult = last ? badge(last.final_status, {COMPLETED: 'ok', SKIPPED: 'warn', REFUSED: 'warn'}[last.final_status] || 'error') : '-';
+      const lastRun = last && last.started_at ? new Date(last.started_at * 1000).toLocaleTimeString() : '-';
+      return `<tr>
+        <td>${esc(r.name)}</td>
+        <td>${badge(r.enabled ? 'ON' : 'OFF', r.enabled ? 'ok' : 'warn')}</td>
+        <td>${r.running ? badge('running', 'warn') : badge('idle', 'ok')}</td>
+        <td>${trig}</td>
+        <td>${lastRun}</td>
+        <td>${lastResult}</td>
+        <td>${r.cooldown_remaining_s > 0 ? r.cooldown_remaining_s.toFixed(0) + 's' : '-'}</td>
+      </tr>`;
+    }).join('');
+    $('#automation-body').innerHTML = `
+      <div class="grid">
+        ${card('Automations', (a.automations || []).length)}
+        ${card('Running', (a.automations || []).filter(r => r.running).length)}
+        ${card('Enabled', (a.automations || []).filter(r => r.enabled).length)}
+      </div>
+      <table><thead><tr>
+        <th>Name</th><th>Enabled</th><th>Status</th><th>Trigger</th><th>Last Run</th><th>Result</th><th>Cooldown</th>
+      </tr></thead><tbody>${rows || '<tr><td colspan="7" class="muted">no automations configured</td></tr>'}</tbody></table>`;
+  } catch (e) {}
+}
+
+// ============================================================================
+// P0.13 - Automation Dashboard (list + editor + visual sequence builder +
+// run monitor). Consumes ONLY the P0.12 `/api/automations*` HTTP API - this
+// panel never reads/writes config/automation_rules.json, never calls Home
+// Assistant, and never re-implements AutomationEngine's own validation or
+// execution logic; it only builds request bodies matching the EXISTING
+// P0.11 sequence/P0.12 CRUD schema and renders whatever the API returns.
+// See docs/change_impact/automation_dashboard_p0_13.md for the full design.
+// ============================================================================
+let automState = {
+  modalOpen: false,
+  schema: null,     // cached GET /api/automations/schema (fetched lazily on first editor open)
+  rows: [],          // last-loaded /api/automations list (reused by the run-monitor's targeted redraw)
+  draft: null,       // the automation object currently being edited in the modal
+  mode: 'actions',   // 'actions' | 'sequence' - which of the two mutually-exclusive lists is active
+  isNew: false,
+  runs: {},          // automation id -> ephemeral {label, cls, stepText, executionId} - Phase 10 run monitor UI state only, never a second execution record
+};
+
+const AUTOM_STEP_ICONS = {
+  'home_assistant.turn_on': '\u{1F4A1}', 'home_assistant.turn_off': '\u{1F4A1}', 'home_assistant.toggle': '\u{1F4A1}',
+  // P0.14 (Advanced HA Automation Actions & Script Runner) - additive icons/labels only.
+  'home_assistant.set_brightness': '\u{1F505}', 'home_assistant.set_color': '\u{1F3A8}',
+  'home_assistant.set_temperature': '\u{1F321}\u{FE0F}', 'home_assistant.run_script': '\u{1F4DC}',
+  'home_assistant.activate_scene': '\u{1F3AC}', 'home_assistant.call_service': '\u{2699}\u{FE0F}',
+  'camera.preset': '\u{1F4F7}', 'camera.home': '\u{1F4F7}', 'camera.stop_patrol': '\u{1F4F7}',
+  'automation.log': '\u{1F4DD}', 'delay': '⏱', 'wait_until': '\u{23F3}', 'condition': '\u{1F500}',
+  'stop_automation': '\u{1F6D1}',
+};
+function automStepIcon(type) { return AUTOM_STEP_ICONS[type] || '⚙'; }
+function automStepLabel(type) {
+  const labels = {
+    'home_assistant.turn_on': 'Turn ON', 'home_assistant.turn_off': 'Turn OFF', 'home_assistant.toggle': 'Toggle',
+    'home_assistant.set_brightness': 'Set Brightness', 'home_assistant.set_color': 'Set Color',
+    'home_assistant.set_temperature': 'Set Temperature', 'home_assistant.run_script': 'Run HA Script',
+    'home_assistant.activate_scene': 'Activate Scene', 'home_assistant.call_service': 'Call HA Service (Advanced)',
+    'camera.preset': 'Camera Preset', 'camera.home': 'Camera Home', 'camera.stop_patrol': 'Stop Camera Patrol',
+    'automation.log': 'Log Message', 'delay': 'Wait (Delay)', 'wait_until': 'Wait Until',
+    'condition': 'If / Then / Else', 'stop_automation': 'Stop Automation',
+  };
+  return labels[type] || (type || '(choose type)');
+}
+
+async function ensureAutomSchema() {
+  if (automState.schema) return automState.schema;
+  try {
+    automState.schema = await api('/api/automations/schema');
+  } catch (e) {
+    automState.schema = { trigger_types: ['event', 'time', 'manual'], condition_types: [], action_types: [], sequence_step_types: [], devices: [], known_event_names: [], known_camera_event_kinds: [], known_condition_targets: [] };
+  }
+  // P0.14 - the categorized `/api/automations/devices` registry is a
+  // separate, honest-by-construction endpoint (Section 10): it never
+  // fabricates entities for categories with no real local registry
+  // (fans/climate/media_players/sensors/scenes/other always come back
+  // empty), and reports `ha_connected` truthfully. The flat device
+  // picker above already only ever shows real devices (same underlying
+  // registry), so this call is only used for the one honest "Home
+  // Assistant unavailable" hint below - not a second/competing device list.
+  try { automState.deviceRegistry = await api('/api/automations/devices'); }
+  catch (e) { automState.deviceRegistry = null; }
+  return automState.schema;
+}
+
+function automHaStatusNote() {
+  const reg = automState.deviceRegistry;
+  if (!reg || reg.ha_connected) return '';
+  return '<p class="muted small">Home Assistant unavailable - only locally known lights/switches/scripts are shown below; fans, climate, media players, sensors, and scenes require a real Home Assistant connection and are not listed.</p>';
+}
+
+// -- List ---------------------------------------------------------------------
+async function loadAutomations() {
+  if (automState.modalOpen) return;  // never yank the editor out from under an in-progress edit (same convention loadMemory() already uses)
+  try {
+    // P0.15 - also (re)ensure the schema/device registry is cached so the
+    // list view can show human-readable device names in its action
+    // summary lines (Section 7/8), not raw entity IDs. `ensureAutomSchema()`
+    // never rejects (it falls back to an empty schema internally on
+    // error), so this never turns a real automations-list failure into a
+    // false "unavailable" state.
+    const [data] = await Promise.all([api('/api/automations'), ensureAutomSchema()]);
+    automState.rows = data.automations || [];
+    renderAutomationList(automState.rows);
+  } catch (e) {
+    $('#autom-list-body').innerHTML = '<p class="muted">Automations unavailable (offline, or the automation engine is not running).</p>';
+  }
+}
+
+function automTriggerSummary(trig) {
+  if (!trig) return '-';
+  if (trig.type === 'event') return 'event: ' + esc((trig.parameters || {}).event_name || '');
+  if (trig.type === 'time') return 'time: ' + esc((trig.parameters || {}).time || '');
+  return 'manual';
+}
+
+// -- P0.15 Section 7/8 - natural-language card summary helpers ---------------
+// These are purely additive, display-only helpers: they read the exact
+// same `a.trigger`/`a.conditions`/`a.actions`/`a.sequence` the technical
+// `automTriggerSummary()`/table columns already read, they never mutate
+// state, and a missing/unrecognized shape always falls back to a plain,
+// honest label rather than throwing - the table must never break because
+// a summary line couldn't be built.
+function automTriggerHuman(trig) {
+  if (!trig || !trig.type) return 'Manual trigger only';
+  if (trig.type === 'event') {
+    const name = (trig.parameters || {}).event_name || '';
+    return name ? `When ${name} happens` : 'When an event happens';
+  }
+  if (trig.type === 'time') {
+    const hhmm = (trig.parameters || {}).time || '';
+    return hhmm ? `Every day at ${hhmm}` : 'On a scheduled time';
+  }
+  return 'Only when run manually';
+}
+
+const AUTOM_COND_OPERATOR_WORDS = {
+  equals: 'is', state_is: 'is', not_equals: 'is not',
+  greater_than: '>', less_than: '<', greater_equal: '>=', contains: 'contains',
+};
+function automConditionsHuman(conds) {
+  if (!conds || !conds.length) return [];
+  return conds.map(c => {
+    if (c.type === 'time') {
+      const after = (c.parameters || {}).after || '?';
+      const before = (c.parameters || {}).before || '?';
+      return `Only between ${after} and ${before}`;
+    }
+    const op = AUTOM_COND_OPERATOR_WORDS[c.type] || (c.type || 'matches');
+    const val = c.value === null || c.value === undefined || c.value === '' ? '(any)' : String(c.value);
+    return `Only when ${c.target || '(unset)'} ${op} ${val}`;
+  });
+}
+
+function automEntityLabel(entityId) {
+  if (!entityId) return '';
+  const devices = (automState.schema && automState.schema.devices) || [];
+  const found = devices.find(d => d.entity_id === entityId);
+  return found ? found.name : entityId;
+}
+
+function automActionHumanLabel(step) {
+  const label = automStepLabel(step.type);
+  const p = step.parameters || {};
+  if (p.entity_id) return `${label}: ${automEntityLabel(p.entity_id)}`;
+  const targetIds = (p.target && p.target.entity_id) || [];
+  if (targetIds.length) return `${label}: ${targetIds.map(automEntityLabel).join(', ')}`;
+  if (step.type === 'delay') return `Wait ${p.seconds != null && p.seconds !== '' ? p.seconds : '?'}s`;
+  if (step.type === 'automation.log') return p.message ? `Log: ${p.message}` : 'Log message';
+  return label;
+}
+
+function automActionsHuman(a) {
+  const isSeq = !!(a.sequence && a.sequence.length);
+  const steps = (isSeq ? a.sequence : (a.actions || [])).filter(s => s && s.type);
+  const cap = 4;
+  const lines = steps.slice(0, cap).map(s => '→ ' + automActionHumanLabel(s));
+  if (steps.length > cap) lines.push({more: true, text: `+ ${steps.length - cap} more step${steps.length - cap === 1 ? '' : 's'}`});
+  if (!lines.length) lines.push({more: true, text: 'No actions configured yet'});
+  return lines;
+}
+
+function automCardSummaryHtml(a) {
+  const lines = [];
+  lines.push(`<div class="autom-summary-line autom-summary-trigger">${esc(automTriggerHuman(a.trigger))}</div>`);
+  automConditionsHuman(a.conditions || []).forEach(l => lines.push(`<div class="autom-summary-line">${esc(l)}</div>`));
+  automActionsHuman(a).forEach(l => {
+    if (typeof l === 'string') lines.push(`<div class="autom-summary-line">${esc(l)}</div>`);
+    else lines.push(`<div class="autom-summary-line autom-summary-more">${esc(l.text)}</div>`);
+  });
+  return lines.join('');
+}
+
+function automLastResultBadge(status) {
+  if (!status) return '-';
+  if (status.running) return badge('running', 'warn');
+  const last = status.last_execution;
+  if (!last) return '<span class="muted">never run</span>';
+  // P0.14 - CANCELLED (stop_automation step) and TIMEOUT (wait_until step)
+  // are both deliberate, expected outcomes, not errors - shown as 'warn'
+  // just like SKIPPED/REFUSED/PARTIAL_FAILURE, never as 'error'.
+  const cls = {COMPLETED: 'ok', SKIPPED: 'warn', REFUSED: 'warn', PARTIAL_FAILURE: 'warn', CANCELLED: 'warn', TIMEOUT: 'warn'}[last.final_status] || 'error';
+  return badge(last.final_status, cls);
+}
+
+function renderAutomationList(rows) {
+  if (!rows.length) {
+    $('#autom-list-body').innerHTML = '<p class="muted">No automations yet. Click &ldquo;+ New Automation&rdquo; to create one.</p>';
+    return;
+  }
+  const trs = rows.map(a => {
+    const isSequence = !!(a.sequence && a.sequence.length);
+    const stepCount = isSequence ? a.sequence.length : (a.actions || []).length;
+    const run = automState.runs[a.id];
+    const resultCell = run
+      ? `${badge(run.label, run.cls)}${run.stepText ? ` <span class="muted small">${esc(run.stepText)}</span>` : ''}`
+      : automLastResultBadge(a.status);
+    return `<tr data-autom-row="${escAttr(a.id)}">
+      <td><strong>${esc(a.name)}</strong>${a.description ? `<div class="autom-desc">${esc(a.description)}</div>` : ''}${automCardSummaryHtml(a)}</td>
+      <td>${badge(a.enabled ? 'ON' : 'OFF', a.enabled ? 'ok' : 'warn')}</td>
+      <td>${automTriggerSummary(a.trigger)}</td>
+      <td>${stepCount} <span class="muted small">(${isSequence ? 'sequence' : 'actions'})</span></td>
+      <td>${a.cooldown_seconds > 0 ? a.cooldown_seconds + 's' : '-'}</td>
+      <td>${resultCell}</td>
+      <td>
+        <div class="pill-row" style="margin-bottom:0">
+          <button class="btn" data-autom-edit="${escAttr(a.id)}">Edit</button>
+          <button class="btn" data-autom-toggle="${escAttr(a.id)}" data-enabled="${a.enabled ? '1' : '0'}">${a.enabled ? 'Disable' : 'Enable'}</button>
+          <button class="btn" data-autom-run="${escAttr(a.id)}">Run</button>
+          <button class="btn danger" data-autom-delete="${escAttr(a.id)}">Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  $('#autom-list-body').innerHTML = `
+    <div class="grid">
+      ${card('Automations', rows.length)}
+      ${card('Enabled', rows.filter(a => a.enabled).length)}
+      ${card('Running', rows.filter(a => a.status && a.status.running).length)}
+    </div>
+    <table><thead><tr>
+      <th>Name</th><th>Enabled</th><th>Trigger</th><th>Steps</th><th>Cooldown</th><th>Last Result</th><th>Manage</th>
+    </tr></thead><tbody>${trs}</tbody></table>`;
+
+  $$('#autom-list-body [data-autom-edit]').forEach(b => b.addEventListener('click', () => openAutomationEditorById(b.dataset.automEdit)));
+  $$('#autom-list-body [data-autom-toggle]').forEach(b => b.addEventListener('click', () => automToggleEnabled(b.dataset.automToggle, b.dataset.enabled === '1')));
+  $$('#autom-list-body [data-autom-run]').forEach(b => b.addEventListener('click', () => automRun(b.dataset.automRun)));
+  $$('#autom-list-body [data-autom-delete]').forEach(b => b.addEventListener('click', () => automDelete(b.dataset.automDelete)));
+}
+
+// -- Enable/Disable/Delete/Run (Phases 10-12) - each a thin call onto the
+// EXISTING P0.12 endpoint; the UI never maintains its own client-only
+// enabled/deleted state - every button click re-reads the server's response.
+async function automToggleEnabled(id, currentlyEnabled) {
+  const path = '/api/automations/' + encodeURIComponent(id) + '/' + (currentlyEnabled ? 'disable' : 'enable');
+  try { await api(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}); } catch (e) {}
+  loadAutomations();
+}
+
+async function automDelete(id) {
+  if (!confirm('Delete this automation permanently? This cannot be undone.')) return;
+  try { await api('/api/automations/' + encodeURIComponent(id) + '/delete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}); } catch (e) {}
+  loadAutomations();
+}
+
+function renderAutomFromRunsUpdate() { renderAutomationList(automState.rows || []); }
+
+async function automRun(id) {
+  let result;
+  try {
+    result = await api('/api/automations/' + encodeURIComponent(id) + '/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+  } catch (e) {
+    automState.runs[id] = { label: 'network error', cls: 'error', stepText: '' };
+    renderAutomFromRunsUpdate();
+    return;
+  }
+  if (!result.success) {
+    automState.runs[id] = { label: result.status || 'refused', cls: 'error', stepText: result.message || '' };
+    renderAutomFromRunsUpdate();
+    setTimeout(() => { delete automState.runs[id]; loadAutomations(); }, 6000);
+    return;
+  }
+  // Only what run_automation() actually returned - QUEUED is the one state
+  // the backend guarantees at this point; RUNNING/COMPLETED/FAILED are only
+  // ever shown once a poll of the SAME execution_id confirms them (Phase 10:
+  // "do not invent execution states the backend does not provide").
+  automState.runs[id] = { label: 'queued', cls: 'warn', stepText: '', executionId: result.execution_id };
+  renderAutomFromRunsUpdate();
+  automPollRun(id, result.execution_id, 0);
+}
+
+async function automPollRun(id, executionId, attempt) {
+  if (attempt > 20) { delete automState.runs[id]; loadAutomations(); return; }  // ~30s observation cap
+  let status;
+  try { status = await api('/api/automations/' + encodeURIComponent(id)); } catch (e) { return; }
+  if (status.error) { delete automState.runs[id]; return; }
+  const st = status.status || {};
+  const last = st.last_execution;
+  if (st.running) {
+    // Step-level progress (current_step_index/total_steps) is ONLY ever
+    // populated by the engine for a `sequence`-based execution (P0.11) -
+    // a legacy `actions`-based run leaves both `None`/absent, and this UI
+    // correctly shows no step text for it rather than fabricating one.
+    let stepText = '';
+    if (last && last.execution_id === executionId && last.total_steps) {
+      stepText = `step ${(last.current_step_index || 0) + 1}/${last.total_steps}`;
+    }
+    automState.runs[id] = { label: 'running', cls: 'warn', stepText, executionId };
+    renderAutomFromRunsUpdate();
+    setTimeout(() => automPollRun(id, executionId, attempt + 1), 1500);
+    return;
+  }
+  if (last && last.execution_id === executionId) {
+    const cls = {COMPLETED: 'ok', SKIPPED: 'warn', REFUSED: 'warn', PARTIAL_FAILURE: 'warn', CANCELLED: 'warn', TIMEOUT: 'warn'}[last.final_status] || 'error';
+    automState.runs[id] = { label: last.final_status, cls, stepText: '' };
+  } else {
+    // The run finished before/between polls and a newer execution already
+    // overwrote `last_execution` - report only what we actually know (it
+    // is no longer running), never a fabricated final status.
+    automState.runs[id] = { label: 'completed', cls: 'ok', stepText: '' };
+  }
+  renderAutomFromRunsUpdate();
+  setTimeout(() => { delete automState.runs[id]; loadAutomations(); }, 5000);
+}
+
+// -- Editor (Phases 3-9) --------------------------------------------------
+function blankAutomationDraft() {
+  return {
+    id: '', name: '', description: '', enabled: true,
+    trigger: { type: 'event', parameters: { event_name: '' } },
+    conditions: [], cooldown_seconds: 0, execution_policy: 'no_partial',
+    actions: [], sequence: [],
+  };
+}
+
+async function openAutomationEditorById(id) {
+  try { openAutomationEditor(await api('/api/automations/' + encodeURIComponent(id))); } catch (e) {}
+}
+
+async function openAutomationEditor(automation) {
+  automState.modalOpen = true;
+  automState.isNew = !automation;
+  automState.draft = automation ? JSON.parse(JSON.stringify(automation)) : blankAutomationDraft();
+  if (!automState.draft.actions) automState.draft.actions = [];
+  if (!automState.draft.sequence) automState.draft.sequence = [];
+  if (!automState.draft.conditions) automState.draft.conditions = [];
+  automState.mode = automState.draft.sequence.length ? 'sequence' : 'actions';
+  await ensureAutomSchema();
+  renderAutomationEditor();
+  $('#autom-modal-overlay').classList.add('show');
+}
+
+function closeAutomationEditor() {
+  automState.modalOpen = false;
+  automState.draft = null;
+  $('#autom-modal-overlay').classList.remove('show');
+  loadAutomations();
+}
+$('#autom-modal-overlay').addEventListener('click', (ev) => { if (ev.target.id === 'autom-modal-overlay') closeAutomationEditor(); });
+$('#autom-new-btn').addEventListener('click', () => openAutomationEditor(null));
+
+function automParseLooseValue(raw) {
+  if (raw === '') return '';
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  if (raw === 'null') return null;
+  if (raw.trim() !== '' && !isNaN(Number(raw))) return Number(raw);
+  return raw;
+}
+
+function automDefaultParamsForType(type) {
+  if (type === 'home_assistant.turn_on' || type === 'home_assistant.turn_off' || type === 'home_assistant.toggle') return { target: '' };
+  // P0.14 - additive default-parameter shapes for every new action/step type.
+  if (type === 'home_assistant.set_brightness') return { target: '', level: 100 };
+  if (type === 'home_assistant.set_color') return { target: '', color: '' };
+  if (type === 'home_assistant.set_temperature') return { target: '', value: 21 };
+  if (type === 'home_assistant.run_script') return { entity_id: '' };
+  if (type === 'home_assistant.activate_scene') return { entity_id: '' };
+  if (type === 'home_assistant.call_service') return { domain: '', service: '', target: { entity_id: [] }, data: {} };
+  if (type === 'camera.preset') return { preset: '' };
+  if (type === 'automation.log') return { message: '' };
+  if (type === 'delay') return { seconds: 1 };
+  if (type === 'wait_until') return { target: '', attribute: 'state', operator: 'equals', value: '', timeout_seconds: 10 };
+  if (type === 'condition') return { conditions: [{ type: 'equals', target: '', value: '' }], then: [], else: [] };
+  if (type === 'stop_automation') return {};
+  return {};
+}
+
+function automDeviceOptionsHtml(onlyDomain) {
+  // P0.14 - `onlyDomain` (optional) restricts the picker to one domain,
+  // e.g. 'script' for the Run HA Script step - the same underlying
+  // `schema.devices` list (P0.14 also added `luno.devices.SCRIPTS`
+  // entries to it - see `automation_api.py::_known_devices()`'s own
+  // P0.14 comment), just filtered client-side.
+  const devices = ((automState.schema && automState.schema.devices) || []).filter(d => !onlyDomain || d.domain === onlyDomain);
+  const byDomain = {};
+  devices.forEach(d => { (byDomain[d.domain] = byDomain[d.domain] || []).push(d); });
+  return Object.keys(byDomain).sort().map(domain =>
+    `<optgroup label="${escAttr(domain)}">${byDomain[domain].map(d => `<option value="${escAttr(d.entity_id)}">${esc(d.name)} (${esc(d.entity_id)})</option>`).join('')}</optgroup>`
+  ).join('');
+}
+
+function renderStepParamFields(step, list, idx) {
+  const p = step.parameters || {};
+  if (step.type === 'home_assistant.turn_on' || step.type === 'home_assistant.turn_off' || step.type === 'home_assistant.toggle') {
+    return `<div class="autom-step-params">
+      <div class="autom-field grow">
+        <label>Pick a known device</label>
+        <select data-entity-picker data-entity-key="target" data-list="${list}" data-idx="${idx}">
+          <option value="">-- pick --</option>
+          ${automDeviceOptionsHtml()}
+        </select>
+      </div>
+      <div class="autom-field grow">
+        <label>Entity ID</label>
+        <input type="text" data-step-param="target" data-list="${list}" data-idx="${idx}" value="${escAttr(p.target || '')}" placeholder="light.example">
+      </div>
+      <div class="autom-field">
+        <label>Delay before dispatch (s, optional)</label>
+        <input type="number" min="0" max="300" step="0.5" data-step-param="delay_seconds" data-list="${list}" data-idx="${idx}" value="${p.delay_seconds != null ? escAttr(p.delay_seconds) : ''}">
+      </div>
+    </div>`;
+  }
+  // -- P0.14 (Advanced HA Automation Actions & Script Runner) - additive
+  // branches only, every one of them below dispatches through the SAME
+  // AutomationEngine -> ToolManager path as turn_on/turn_off above (see
+  // `engine.py::_build_p0_14_tool_call()`'s own docstring) - this file
+  // only ever constructs the schema, never executes anything itself.
+  if (step.type === 'home_assistant.set_brightness') {
+    return `<div class="autom-step-params">
+      <div class="autom-field grow"><label>Pick a known device</label>
+        <select data-entity-picker data-entity-key="target" data-list="${list}" data-idx="${idx}"><option value="">-- pick --</option>${automDeviceOptionsHtml()}</select></div>
+      <div class="autom-field grow"><label>Entity ID</label>
+        <input type="text" data-step-param="target" data-list="${list}" data-idx="${idx}" value="${escAttr(p.target || '')}" placeholder="light.example"></div>
+      <div class="autom-field"><label>Brightness (%)</label>
+        <input type="number" min="0" max="100" data-step-param="level" data-list="${list}" data-idx="${idx}" value="${p.level != null ? escAttr(p.level) : 100}"></div>
+    </div>`;
+  }
+  if (step.type === 'home_assistant.set_color') {
+    return `<div class="autom-step-params">
+      <div class="autom-field grow"><label>Pick a known device</label>
+        <select data-entity-picker data-entity-key="target" data-list="${list}" data-idx="${idx}"><option value="">-- pick --</option>${automDeviceOptionsHtml()}</select></div>
+      <div class="autom-field grow"><label>Entity ID</label>
+        <input type="text" data-step-param="target" data-list="${list}" data-idx="${idx}" value="${escAttr(p.target || '')}" placeholder="light.example"></div>
+      <div class="autom-field grow"><label>Color name</label>
+        <input type="text" data-step-param="color" data-list="${list}" data-idx="${idx}" value="${escAttr(p.color || '')}" placeholder="blue, red, warm white..."></div>
+    </div>`;
+  }
+  if (step.type === 'home_assistant.set_temperature') {
+    return `<div class="autom-step-params">
+      <div class="autom-field grow"><label>Pick a known device</label>
+        <select data-entity-picker data-entity-key="target" data-list="${list}" data-idx="${idx}"><option value="">-- pick --</option>${automDeviceOptionsHtml()}</select></div>
+      <div class="autom-field grow"><label>Entity ID</label>
+        <input type="text" data-step-param="target" data-list="${list}" data-idx="${idx}" value="${escAttr(p.target || '')}" placeholder="climate.example"></div>
+      <div class="autom-field"><label>Temperature</label>
+        <input type="number" data-step-param="value" data-list="${list}" data-idx="${idx}" value="${p.value != null ? escAttr(p.value) : 21}"></div>
+    </div>`;
+  }
+  if (step.type === 'home_assistant.run_script') {
+    return `<div class="autom-step-params">
+      <div class="autom-field grow"><label>Pick a known script</label>
+        <select data-entity-picker data-entity-key="entity_id" data-list="${list}" data-idx="${idx}"><option value="">-- pick --</option>${automDeviceOptionsHtml('script')}</select></div>
+      <div class="autom-field grow"><label>Script Entity ID</label>
+        <input type="text" data-step-param="entity_id" data-list="${list}" data-idx="${idx}" value="${escAttr(p.entity_id || '')}" placeholder="script.morning_routine"></div>
+      <div class="autom-field grow"><label>Variables (JSON, optional)</label>
+        <textarea class="autom-input" data-step-json data-json-key="variables" data-list="${list}" data-idx="${idx}" placeholder='{"room": "living_room"}'>${p.variables ? esc(JSON.stringify(p.variables)) : ''}</textarea></div>
+    </div>`;
+  }
+  if (step.type === 'home_assistant.activate_scene') {
+    return `<div class="autom-step-params">
+      <div class="autom-field grow"><label>Scene Entity ID</label>
+        <input type="text" data-step-param="entity_id" data-list="${list}" data-idx="${idx}" value="${escAttr(p.entity_id || '')}" placeholder="scene.movie_mode"></div>
+      <p class="muted small">No local scene registry exists in this project - type the scene's entity id directly (find it in Home Assistant's own UI).</p>
+    </div>`;
+  }
+  if (step.type === 'home_assistant.call_service') {
+    const entityIds = (p.target && p.target.entity_id) || [];
+    const entityIdsStr = Array.isArray(entityIds) ? entityIds.join(', ') : String(entityIds || '');
+    return `<div class="autom-step-params">
+      <div class="autom-field"><label>Domain</label>
+        <input type="text" data-step-param="domain" data-list="${list}" data-idx="${idx}" value="${escAttr(p.domain || '')}" placeholder="light"></div>
+      <div class="autom-field"><label>Service</label>
+        <input type="text" data-step-param="service" data-list="${list}" data-idx="${idx}" value="${escAttr(p.service || '')}" placeholder="turn_on"></div>
+      <div class="autom-field grow"><label>Entity ID(s), comma separated</label>
+        <input type="text" data-step-entity-list data-list="${list}" data-idx="${idx}" value="${escAttr(entityIdsStr)}" placeholder="light.wled, light.main_light"></div>
+      <div class="autom-field grow" style="min-width:100%"><label>Data (JSON, optional)</label>
+        <textarea class="autom-input" data-step-json data-json-key="data" data-list="${list}" data-idx="${idx}" placeholder='{"brightness_pct": 50}'>${esc(JSON.stringify(p.data || {}))}</textarea></div>
+      <p class="muted small" style="width:100%">Advanced: calls any Home Assistant service directly through the existing ToolManager - domain/service must be lowercase (e.g. light / turn_on).</p>
+    </div>`;
+  }
+  if (step.type === 'wait_until') {
+    return `<div class="autom-step-params">
+      <div class="autom-field grow"><label>Entity ID</label>
+        <input type="text" data-step-param="target" data-list="${list}" data-idx="${idx}" value="${escAttr(p.target || '')}" placeholder="light.wled"></div>
+      <div class="autom-field"><label>Attribute</label>
+        <input type="text" data-step-param="attribute" data-list="${list}" data-idx="${idx}" value="${escAttr(p.attribute || 'state')}"></div>
+      <div class="autom-field"><label>Operator</label>
+        <select data-step-param="operator" data-list="${list}" data-idx="${idx}">
+          ${(automState.schema.condition_types || []).map(t => `<option value="${escAttr(t)}" ${t === p.operator ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+        </select></div>
+      <div class="autom-field grow"><label>Value</label>
+        <input type="text" data-step-param="value" data-list="${list}" data-idx="${idx}" value="${escAttr(p.value === null || p.value === undefined ? '' : String(p.value))}"></div>
+      <div class="autom-field"><label>Timeout (s)</label>
+        <input type="number" min="1" max="300" data-step-param="timeout_seconds" data-list="${list}" data-idx="${idx}" value="${p.timeout_seconds != null ? escAttr(p.timeout_seconds) : 10}"></div>
+      <p class="muted small" style="width:100%">Only works when Luno is connected to a REAL Home Assistant backend - the current status is shown in the run monitor, never fabricated.</p>
+    </div>`;
+  }
+  if (step.type === 'condition') {
+    return `<div class="autom-step-params" style="display:block">
+      <p class="muted small">All conditions below must pass (AND) for the THEN branch to run - otherwise ELSE runs.</p>
+      ${renderCondConditions(step, idx)}
+      <div class="autom-cond-branches">
+        ${renderCondBranch(step, idx, 'then')}
+        ${renderCondBranch(step, idx, 'else')}
+      </div>
+    </div>`;
+  }
+  if (step.type === 'stop_automation') {
+    return '<p class="muted small">Stops this automation here - no later steps run. This is a deliberate stop, not a failure.</p>';
+  }
+  if (step.type === 'camera.preset') {
+    return `<div class="autom-step-params"><div class="autom-field grow"><label>Preset name</label>
+      <input type="text" data-step-param="preset" data-list="${list}" data-idx="${idx}" value="${escAttr(p.preset || '')}"></div></div>`;
+  }
+  if (step.type === 'camera.home' || step.type === 'camera.stop_patrol') {
+    return '<p class="muted small">(no parameters)</p>';
+  }
+  if (step.type === 'automation.log') {
+    return `<div class="autom-step-params"><div class="autom-field grow"><label>Log message</label>
+      <input type="text" data-step-param="message" data-list="${list}" data-idx="${idx}" value="${escAttr(p.message || '')}"></div></div>`;
+  }
+  if (step.type === 'delay') {
+    return `<div class="autom-step-params"><div class="autom-field"><label>Seconds</label>
+      <input type="number" min="0" max="300" step="0.5" data-step-param="seconds" data-list="${list}" data-idx="${idx}" value="${p.seconds != null ? escAttr(p.seconds) : 1}"></div></div>`;
+  }
+  return '<p class="muted small">Choose a type above.</p>';
+}
+
+// -- P0.14 condition (if/then/else) step - its own small, self-contained
+// rendering pair. `then`/`else` branches deliberately support only the
+// simple/common step types below (never a nested `condition`/`wait_until`
+// from this visual builder, even though the backend's own MAX_CONDITION_
+// NESTING_DEPTH would allow limited nesting via the raw API) - keeps the
+// visual builder simple per the brief's own "constrained, declarative,
+// not a full programming language" instruction; a rule author who truly
+// needs nested branches can still author one directly against the P0.12
+// API, which enforces this identically either way.
+const AUTOM_COND_BRANCH_TYPES = [
+  'home_assistant.turn_on', 'home_assistant.turn_off', 'home_assistant.toggle',
+  'home_assistant.set_brightness', 'home_assistant.set_color', 'home_assistant.set_temperature',
+  'home_assistant.run_script', 'home_assistant.activate_scene', 'automation.log', 'delay',
+];
+
+function renderCondConditions(step, idx) {
+  const conds = step.parameters.conditions || [];
+  const rows = conds.map((c, cidx) => `
+    <div class="autom-row" data-ccond-row="${idx}:${cidx}">
+      <div class="autom-field grow"><label>Target</label>
+        <input type="text" list="autom-condition-targets" data-ccond-field="target" data-idx="${idx}" data-cidx="${cidx}" value="${escAttr(c.target || '')}"></div>
+      <div class="autom-field"><label>Operator</label>
+        <select data-ccond-field="type" data-idx="${idx}" data-cidx="${cidx}">
+          ${(automState.schema.condition_types || []).map(t => `<option value="${escAttr(t)}" ${t === c.type ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+        </select></div>
+      <div class="autom-field grow"><label>Value</label>
+        <input type="text" data-ccond-field="value" data-idx="${idx}" data-cidx="${cidx}" value="${escAttr(c.value === null || c.value === undefined ? '' : String(c.value))}"></div>
+      <button class="btn danger" data-ccond-remove="${idx}:${cidx}">Remove</button>
+    </div>`).join('');
+  return rows + `<div class="autom-add-row"><button class="btn" data-ccond-add="${idx}">+ Add Condition</button></div>`;
+}
+
+function renderCondSubStepFields(subStep, addr) {
+  const p = subStep.parameters || {};
+  const mk = (key) => `data-cbranch-param data-caddr="${addr}" data-ckey="${key}"`;
+  if (subStep.type === 'home_assistant.turn_on' || subStep.type === 'home_assistant.turn_off' || subStep.type === 'home_assistant.toggle') {
+    return `<div class="autom-field grow"><label>Entity ID</label><input type="text" ${mk('target')} value="${escAttr(p.target || '')}" placeholder="light.example"></div>`;
+  }
+  if (subStep.type === 'home_assistant.set_brightness') {
+    return `<div class="autom-row">
+      <div class="autom-field grow"><label>Entity ID</label><input type="text" ${mk('target')} value="${escAttr(p.target || '')}"></div>
+      <div class="autom-field"><label>Level (%)</label><input type="number" min="0" max="100" ${mk('level')} value="${p.level != null ? escAttr(p.level) : 100}"></div>
+    </div>`;
+  }
+  if (subStep.type === 'home_assistant.set_color') {
+    return `<div class="autom-row">
+      <div class="autom-field grow"><label>Entity ID</label><input type="text" ${mk('target')} value="${escAttr(p.target || '')}"></div>
+      <div class="autom-field grow"><label>Color</label><input type="text" ${mk('color')} value="${escAttr(p.color || '')}" placeholder="blue"></div>
+    </div>`;
+  }
+  if (subStep.type === 'home_assistant.set_temperature') {
+    return `<div class="autom-row">
+      <div class="autom-field grow"><label>Entity ID</label><input type="text" ${mk('target')} value="${escAttr(p.target || '')}"></div>
+      <div class="autom-field"><label>Value</label><input type="number" ${mk('value')} value="${p.value != null ? escAttr(p.value) : 21}"></div>
+    </div>`;
+  }
+  if (subStep.type === 'home_assistant.run_script' || subStep.type === 'home_assistant.activate_scene') {
+    return `<div class="autom-field grow"><label>Entity ID</label><input type="text" ${mk('entity_id')} value="${escAttr(p.entity_id || '')}" placeholder="${subStep.type === 'home_assistant.run_script' ? 'script.example' : 'scene.example'}"></div>`;
+  }
+  if (subStep.type === 'automation.log') {
+    return `<div class="autom-field grow"><label>Message</label><input type="text" ${mk('message')} value="${escAttr(p.message || '')}"></div>`;
+  }
+  if (subStep.type === 'delay') {
+    return `<div class="autom-field"><label>Seconds</label><input type="number" min="0" max="300" step="0.5" ${mk('seconds')} value="${p.seconds != null ? escAttr(p.seconds) : 1}"></div>`;
+  }
+  return '<p class="muted small">Choose a type above.</p>';
+}
+
+function renderCondBranch(step, idx, branchName) {
+  const subSteps = step.parameters[branchName] || [];
+  const typeOptions = ['<option value="">-- choose type --</option>'].concat(
+    AUTOM_COND_BRANCH_TYPES.map(t => `<option value="${escAttr(t)}">${esc(automStepLabel(t))}</option>`)
+  ).join('');
+  const rows = subSteps.map((sub, subIdx) => {
+    const addr = `${idx}:${branchName}:${subIdx}`;
+    const opts = ['<option value="">-- choose type --</option>'].concat(
+      AUTOM_COND_BRANCH_TYPES.map(t => `<option value="${escAttr(t)}" ${t === sub.type ? 'selected' : ''}>${esc(automStepLabel(t))}</option>`)
+    ).join('');
+    return `<div class="autom-step-card autom-step-card-nested">
+      <div class="autom-step-header">
+        <div class="autom-step-title"><span class="autom-step-icon">${automStepIcon(sub.type)}</span>${esc(automStepLabel(sub.type))}</div>
+        <button class="btn danger" data-cbranch-remove="${addr}">Remove</button>
+      </div>
+      <div class="autom-field" style="max-width:220px"><label>Type</label>
+        <select data-cbranch-type="${addr}">${opts}</select></div>
+      ${renderCondSubStepFields(sub, addr)}
+    </div>`;
+  }).join('');
+  return `<div class="autom-cond-branch">
+    <h3>${branchName === 'then' ? 'THEN' : 'ELSE'}</h3>
+    ${rows || '<p class="muted small">No steps yet.</p>'}
+    <button class="btn" data-cbranch-add="${idx}:${branchName}">+ Add step to ${branchName.toUpperCase()}</button>
+  </div>`;
+}
+
+function renderAutomSteps() {
+  const list = automState.mode;
+  const steps = automState.draft[list] || [];
+  const schemaTypes = list === 'sequence' ? (automState.schema.sequence_step_types || []) : (automState.schema.action_types || []);
+  if (!steps.length) return '<p class="muted">No steps yet. Add one below.</p>';
+  return steps.map((step, idx) => {
+    const arrow = (list === 'sequence' && idx > 0) ? '<div class="autom-step-arrow">&darr;</div>' : '';
+    const typeOptions = ['<option value="">-- choose type --</option>'].concat(
+      schemaTypes.map(t => `<option value="${escAttr(t)}" ${t === step.type ? 'selected' : ''}>${esc(automStepLabel(t))}</option>`)
+    ).join('');
+    return `${arrow}<div class="autom-step-card">
+      <div class="autom-step-header">
+        <div class="autom-step-title"><span class="autom-step-icon">${automStepIcon(step.type)}</span>${esc(automStepLabel(step.type))}${list === 'sequence' ? ` <span class="muted small">(step ${idx + 1})</span>` : ''}</div>
+        <div class="autom-step-actions">
+          ${list === 'sequence' && idx > 0 ? `<button class="btn" data-step-up data-list="${list}" data-idx="${idx}">&uarr;</button>` : ''}
+          ${list === 'sequence' && idx < steps.length - 1 ? `<button class="btn" data-step-down data-list="${list}" data-idx="${idx}">&darr;</button>` : ''}
+          <button class="btn danger" data-step-remove data-list="${list}" data-idx="${idx}">Remove</button>
+        </div>
+      </div>
+      <div class="autom-field" style="max-width:260px">
+        <label>Type</label>
+        <select data-step-type data-list="${list}" data-idx="${idx}">${typeOptions}</select>
+      </div>
+      ${renderStepParamFields(step, list, idx)}
+    </div>`;
+  }).join('');
+}
+
+function automStepMove(list, idx, dir) {
+  const arr = automState.draft[list];
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= arr.length) return;
+  const tmp = arr[idx]; arr[idx] = arr[newIdx]; arr[newIdx] = tmp;
+  renderAutomationEditor();
+}
+
+function renderAutomTriggerFields() {
+  const t = automState.draft.trigger || {type: 'event', parameters: {}};
+  if (t.type === 'event') {
+    return `<div class="autom-field grow">
+      <label>Event Name</label>
+      <input type="text" list="autom-event-names" data-field="trigger.event_name" value="${escAttr((t.parameters || {}).event_name || '')}" placeholder="e.g. camera_automation.camera_event">
+    </div>`;
+  }
+  if (t.type === 'time') {
+    return `<div class="autom-field">
+      <label>Time (HH:MM, 24h)</label>
+      <input type="text" data-field="trigger.time" value="${escAttr((t.parameters || {}).time || '')}" placeholder="21:30">
+    </div>`;
+  }
+  return '<p class="muted small">Manual triggers have no parameters - run this automation from its Run button.</p>';
+}
+
+// P0.15 Section 6 - is `now` inside this time condition's window right
+// now? Pure display helper (an "✓ Active during this period" hint in the
+// editor) - it never affects saving/evaluation, which always happens
+// server-side in `conditions.py` at actual trigger time. Mirrors that
+// same file's normal/overnight comparison logic exactly, so the hint
+// never disagrees with what the engine would actually decide.
+function automTimeConditionIsActiveNow(after, before) {
+  const a = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(after || '');
+  const b = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(before || '');
+  if (!a || !b) return null;  // incomplete/invalid - "unknown", not "inactive"
+  const now = new Date();
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const am = parseInt(a[1], 10) * 60 + parseInt(a[2], 10);
+  const bm = parseInt(b[1], 10) * 60 + parseInt(b[2], 10);
+  return am <= bm ? (cur >= am && cur <= bm) : (cur >= am || cur <= bm);
+}
+
+function renderAutomConditions() {
+  const conds = automState.draft.conditions || [];
+  if (!conds.length) {
+    return `<p class="muted small">No conditions - this automation runs every time its trigger fires.</p>` + renderAutomConditionAddRow();
+  }
+  const rows = conds.map((c, idx) => {
+    if (c.type === 'time') {
+      const after = (c.parameters || {}).after || '';
+      const before = (c.parameters || {}).before || '';
+      const active = automTimeConditionIsActiveNow(after, before);
+      const badge = active === null
+        ? '<span class="autom-time-active-badge off">? set both times</span>'
+        : active
+          ? '<span class="autom-time-active-badge on">✓ Active during this period</span>'
+          : '<span class="autom-time-active-badge off">Not active right now</span>';
+      return `<div class="autom-time-card" data-cond-row="${idx}">
+        <div class="autom-time-card-header">
+          <div class="autom-time-card-title">🕐 Time</div>
+          <button class="btn danger" data-cond-remove="${idx}">Remove</button>
+        </div>
+        <div class="autom-row">
+          <div class="autom-field"><label>From</label>
+            <input type="time" data-time-cond-field="after" data-idx="${idx}" value="${escAttr(after)}"></div>
+          <div class="autom-field"><label>To</label>
+            <input type="time" data-time-cond-field="before" data-idx="${idx}" value="${escAttr(before)}"></div>
+          <div class="autom-field">${badge}</div>
+        </div>
+      </div>`;
+    }
+    return `
+    <div class="autom-row" data-cond-row="${idx}">
+      <div class="autom-field grow">
+        <label>Target</label>
+        <input type="text" list="autom-condition-targets" data-cond-field="target" data-idx="${idx}" value="${escAttr(c.target || '')}" placeholder="e.g. occupancy.state">
+      </div>
+      <div class="autom-field">
+        <label>Operator</label>
+        <select data-cond-field="type" data-idx="${idx}">
+          ${(automState.schema.condition_types || []).map(t => `<option value="${escAttr(t)}" ${t === c.type ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="autom-field grow">
+        <label>Value <span class="muted">(true/false/number/text)</span></label>
+        <input type="text" list="autom-camera-kinds" data-cond-field="value" data-idx="${idx}" value="${escAttr(c.value === null || c.value === undefined ? '' : String(c.value))}">
+      </div>
+      <button class="btn danger" data-cond-remove="${idx}">Remove</button>
+    </div>`;
+  }).join('');
+  return rows + renderAutomConditionAddRow();
+}
+
+function renderAutomConditionAddRow() {
+  return `<div class="autom-add-row">
+    <button class="btn" id="autom-add-time-cond-btn">+ Add Time Condition</button>
+    <button class="btn" id="autom-add-cond-btn">+ Add Condition (Advanced)</button>
+  </div>`;
+}
+
+function automBuildPayload() {
+  const d = automState.draft;
+  const payload = {
+    name: d.name || '', description: d.description || '', enabled: !!d.enabled,
+    trigger: d.trigger, conditions: d.conditions || [],
+    cooldown_seconds: d.cooldown_seconds || 0, execution_policy: d.execution_policy || 'no_partial',
+  };
+  if (automState.mode === 'sequence') payload.sequence = d.sequence || [];
+  else payload.actions = d.actions || [];
+  if (automState.isNew && d.id) payload.id = d.id;
+  return payload;
+}
+
+function automClientValidate(payload) {
+  const errors = [];
+  if (!payload.name || !payload.name.trim()) errors.push('Name must not be empty.');
+  if (!payload.trigger || !payload.trigger.type) errors.push('Trigger type is required.');
+  if (payload.trigger && payload.trigger.type === 'event' && !(payload.trigger.parameters || {}).event_name) errors.push('Event trigger requires an event name.');
+  if (payload.trigger && payload.trigger.type === 'time' && !/^([01]\d|2[0-3]):[0-5]\d$/.test((payload.trigger.parameters || {}).time || '')) errors.push('Time trigger requires HH:MM (24h).');
+  const steps = automState.mode === 'sequence' ? payload.sequence : payload.actions;
+  if (!steps || !steps.length) errors.push(`At least one ${automState.mode === 'sequence' ? 'sequence step' : 'action'} is required.`);
+  (steps || []).forEach((s, i) => { if (!s.type) errors.push(`Step ${i + 1}: choose a type.`); });
+  // P0.15 Section 9 - the dashboard must never let an invalid/incomplete
+  // time condition reach the server at all. Server-side validation
+  // (`models.py`'s `_validate_time_condition()`) remains the authoritative
+  // check either way - this is purely a fast, friendly, client-side echo
+  // of the exact same HH:MM rule, using the brief's own wording.
+  const HHMM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  (payload.conditions || []).forEach((c) => {
+    if (c.type !== 'time') return;
+    const after = (c.parameters || {}).after || '';
+    const before = (c.parameters || {}).before || '';
+    if (!after || !before) {
+      errors.push('❌ Time range is incomplete — please specify both start and end time.');
+      return;
+    }
+    if (!HHMM_RE.test(after) || !HHMM_RE.test(before)) {
+      errors.push('❌ Invalid time — please enter a time between 00:00 and 23:59.');
+    }
+  });
+  return errors;
+}
+
+function automRenderErrors(errors) {
+  const el = $('#autom-errors');
+  if (!el) return;
+  if (!errors || !errors.length) { el.innerHTML = ''; return; }
+  el.innerHTML = errors.map(e => `<p class="status-banner status-banner-error">${esc(typeof e === 'string' ? e : ((e.field ? e.field + ': ' : '') + (e.message || '')))}</p>`).join('');
+}
+
+function automSetStatus(msg, ok) {
+  const el = $('#autom-status');
+  if (el) el.innerHTML = msg ? `<span style="color:var(--${ok ? 'green' : 'red'})">${ok ? '✓' : '✗'} ${esc(msg)}</span>` : '';
+}
+
+async function automValidateDraft() {
+  const payload = automBuildPayload();
+  const clientErrors = automClientValidate(payload);
+  if (clientErrors.length) { automRenderErrors(clientErrors); automSetStatus('', false); return; }
+  automSetStatus('Validating...', true);
+  try {
+    const body = Object.assign({}, payload);
+    if (automState.draft.id) body.id = automState.draft.id;
+    const result = await api('/api/automations/validate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    if (result.valid) { automRenderErrors([]); automSetStatus('Valid.', true); }
+    else { automRenderErrors(result.errors || []); automSetStatus('Validation failed.', false); }
+  } catch (e) { automSetStatus('Network error while validating.', false); }
+}
+
+async function automSaveDraft() {
+  const payload = automBuildPayload();
+  const clientErrors = automClientValidate(payload);
+  if (clientErrors.length) { automRenderErrors(clientErrors); automSetStatus('', false); return; }
+  automSetStatus('Saving...', true);
+  try {
+    const result = automState.isNew
+      ? await api('/api/automations', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)})
+      : await api('/api/automations/' + encodeURIComponent(automState.draft.id) + '/update', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+    if (result.success) {
+      automRenderErrors([]);
+      automState.isNew = false;
+      automState.draft = result.automation;
+      automState.mode = (automState.draft.sequence && automState.draft.sequence.length) ? 'sequence' : 'actions';
+      renderAutomationEditor();
+      automSetStatus('Saved.', true);
+    } else {
+      automRenderErrors(result.errors || [{message: result.message || 'Save failed.'}]);
+      automSetStatus('Save failed.', false);
+    }
+  } catch (e) { automSetStatus('Network error while saving.', false); }
+}
+
+function renderAutomationEditor() {
+  const d = automState.draft;
+  const s = automState.schema || {};
+  const isNew = automState.isNew;
+
+  $('#autom-modal-box').innerHTML = `
+    <h2>${isNew ? 'New Automation' : 'Edit Automation'}</h2>
+
+    <div class="autom-section">
+      <h2>Basic</h2>
+      <div class="autom-row">
+        ${isNew
+          ? `<div class="autom-field"><label>ID (optional)</label><input type="text" id="autom-f-id" value="${escAttr(d.id || '')}" placeholder="auto-generated if blank"></div>`
+          : `<div class="autom-field"><label>ID</label><input type="text" value="${escAttr(d.id)}" disabled></div>`}
+        <div class="autom-field grow"><label>Name</label><input type="text" id="autom-f-name" value="${escAttr(d.name || '')}" placeholder="Automation name"></div>
+        <div class="autom-field"><label><input type="checkbox" id="autom-f-enabled" ${d.enabled ? 'checked' : ''}> Enabled</label></div>
+      </div>
+      <div class="autom-field grow">
+        <label>Description</label>
+        <textarea class="autom-input" id="autom-f-desc" placeholder="Optional">${esc(d.description || '')}</textarea>
+      </div>
+    </div>
+
+    <div class="autom-section">
+      <h2>Trigger</h2>
+      <div class="autom-row">
+        <div class="autom-field">
+          <label>Type</label>
+          <select data-field="trigger.type">
+            ${(s.trigger_types || ['event', 'time', 'manual']).map(t => `<option value="${escAttr(t)}" ${t === (d.trigger || {}).type ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+          </select>
+        </div>
+        ${renderAutomTriggerFields()}
+      </div>
+    </div>
+
+    <div class="autom-section">
+      <h2>Conditions</h2>
+      <p class="muted autom-hint small">All conditions must pass (AND). Leave empty to always run when the trigger fires.</p>
+      ${renderAutomConditions()}
+    </div>
+
+    <div class="autom-section">
+      <h2>Actions / Sequence</h2>
+      <p class="muted autom-hint small">A rule runs exactly one of these: an unordered list of actions, or an ordered sequence (with optional delays between steps).</p>
+      ${automHaStatusNote()}
+      <div class="autom-mode-toggle">
+        <label><input type="radio" name="autom-mode" value="actions" ${automState.mode === 'actions' ? 'checked' : ''}> Actions (unordered)</label>
+        <label><input type="radio" name="autom-mode" value="sequence" ${automState.mode === 'sequence' ? 'checked' : ''}> Sequence (ordered, with delays)</label>
+      </div>
+      ${renderAutomSteps()}
+      <div class="autom-add-row">
+        <button class="btn" id="autom-add-step-btn">+ Add Action</button>
+        ${automState.mode === 'sequence' ? `
+          <button class="btn" id="autom-add-delay-btn">+ Add Delay</button>
+          <button class="btn" id="autom-add-wait-btn">+ Add Wait Until</button>
+          <button class="btn" id="autom-add-cond-step-btn">+ Add Condition (If/Then/Else)</button>
+          <button class="btn" id="autom-add-stop-btn">+ Add Stop</button>
+        ` : ''}
+      </div>
+    </div>
+
+    <div class="autom-section">
+      <h2>Execution Settings</h2>
+      <div class="autom-row">
+        <div class="autom-field"><label>Cooldown (seconds)</label><input type="number" min="0" max="${s.cooldown_seconds_max || 86400}" step="1" id="autom-f-cooldown" value="${escAttr(d.cooldown_seconds || 0)}"></div>
+        <div class="autom-field"><label>Execution Policy</label><input type="text" value="${escAttr(d.execution_policy || 'no_partial')}" disabled></div>
+      </div>
+    </div>
+
+    <div class="autom-errors" id="autom-errors"></div>
+    <p class="autom-inline-status" id="autom-status"></p>
+
+    <div class="modal-close-row">
+      <button class="btn" id="autom-validate-btn">Validate</button>
+      <button class="btn primary" id="autom-save-btn">${isNew ? 'Create' : 'Save'}</button>
+      ${!isNew ? `<button class="btn" id="autom-modal-toggle-btn">${d.enabled ? 'Disable' : 'Enable'}</button>` : ''}
+      ${!isNew ? `<button class="btn" id="autom-modal-run-btn">Run</button>` : ''}
+      ${!isNew ? `<button class="btn danger" id="autom-modal-delete-btn">Delete...</button>` : ''}
+      <button class="btn" id="autom-modal-close-btn">Close</button>
+    </div>
+
+    <datalist id="autom-event-names">${(s.known_event_names || []).map(n => `<option value="${escAttr(n)}">`).join('')}</datalist>
+    <datalist id="autom-condition-targets">${(s.known_condition_targets || []).map(n => `<option value="${escAttr(n)}">`).join('')}</datalist>
+    <datalist id="autom-camera-kinds">${(s.known_camera_event_kinds || []).map(n => `<option value="${escAttr(n)}">`).join('')}</datalist>`;
+
+  automBindEditorEvents();
+}
+
+function automBindEditorEvents() {
+  $('#autom-f-id')?.addEventListener('input', (ev) => { automState.draft.id = ev.target.value; });
+  $('#autom-f-name')?.addEventListener('input', (ev) => { automState.draft.name = ev.target.value; });
+  $('#autom-f-desc')?.addEventListener('input', (ev) => { automState.draft.description = ev.target.value; });
+  $('#autom-f-enabled')?.addEventListener('change', (ev) => { automState.draft.enabled = ev.target.checked; });
+  $('#autom-f-cooldown')?.addEventListener('input', (ev) => { automState.draft.cooldown_seconds = ev.target.value === '' ? 0 : parseFloat(ev.target.value); });
+
+  $('[data-field="trigger.type"]')?.addEventListener('change', (ev) => {
+    const type = ev.target.value;
+    automState.draft.trigger = { type, parameters: type === 'event' ? {event_name: ''} : type === 'time' ? {time: ''} : {} };
+    renderAutomationEditor();
+  });
+  $('[data-field="trigger.event_name"]')?.addEventListener('input', (ev) => { automState.draft.trigger.parameters.event_name = ev.target.value; });
+  $('[data-field="trigger.time"]')?.addEventListener('input', (ev) => { automState.draft.trigger.parameters.time = ev.target.value; });
+
+  $$('[data-cond-field]').forEach(inp => {
+    const handler = () => {
+      const idx = parseInt(inp.dataset.idx, 10);
+      const cond = automState.draft.conditions[idx];
+      if (!cond) return;
+      if (inp.dataset.condField === 'value') cond.value = automParseLooseValue(inp.value);
+      else cond[inp.dataset.condField] = inp.value;
+    };
+    inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', handler);
+  });
+  $$('[data-cond-remove]').forEach(b => b.addEventListener('click', () => { automState.draft.conditions.splice(parseInt(b.dataset.condRemove, 10), 1); renderAutomationEditor(); }));
+  $('#autom-add-cond-btn')?.addEventListener('click', () => { automState.draft.conditions.push({type: 'equals', target: '', value: ''}); renderAutomationEditor(); });
+
+  // P0.15 Section 6 - the human-friendly "🕐 Time" card's From/To inputs
+  // write into `condition.parameters.{after,before}` (the P0.15 additive
+  // schema field - see models.py's `AutomationCondition.parameters`),
+  // never into `.target`/`.value` (those stay meaningless/unused for a
+  // time condition). Rerenders on `change` (not `input`) so the "Active
+  // during this period" hint updates once a time is actually picked/
+  // committed, without fighting the native time-picker on every keystroke.
+  $$('[data-time-cond-field]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const idx = parseInt(inp.dataset.idx, 10);
+      const cond = automState.draft.conditions[idx];
+      if (!cond) return;
+      cond.parameters = cond.parameters || {};
+      cond.parameters[inp.dataset.timeCondField] = inp.value;
+      renderAutomationEditor();
+    });
+  });
+  $('#autom-add-time-cond-btn')?.addEventListener('click', () => {
+    automState.draft.conditions.push({type: 'time', target: '', value: null, parameters: {after: '', before: ''}});
+    renderAutomationEditor();
+  });
+
+  $$('input[name=autom-mode]').forEach(r => r.addEventListener('change', () => { automState.mode = r.value; renderAutomationEditor(); }));
+
+  $$('[data-step-type]').forEach(sel => sel.addEventListener('change', () => {
+    const list = sel.dataset.list, idx = parseInt(sel.dataset.idx, 10);
+    automState.draft[list][idx] = { type: sel.value, parameters: automDefaultParamsForType(sel.value) };
+    renderAutomationEditor();
+  }));
+  $$('[data-step-remove]').forEach(b => b.addEventListener('click', () => { automState.draft[b.dataset.list].splice(parseInt(b.dataset.idx, 10), 1); renderAutomationEditor(); }));
+  $$('[data-step-up]').forEach(b => b.addEventListener('click', () => automStepMove(b.dataset.list, parseInt(b.dataset.idx, 10), -1)));
+  $$('[data-step-down]').forEach(b => b.addEventListener('click', () => automStepMove(b.dataset.list, parseInt(b.dataset.idx, 10), 1)));
+  $$('[data-step-param]').forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', () => {
+    const list = inp.dataset.list, idx = parseInt(inp.dataset.idx, 10), key = inp.dataset.stepParam;
+    const step = automState.draft[list][idx];
+    if (!step) return;
+    if (inp.type === 'number') {
+      if (inp.value === '') { delete step.parameters[key]; return; }
+      step.parameters[key] = parseFloat(inp.value);
+    } else if (key === 'value') {
+      // P0.14 - `wait_until`'s value field shares the same loose-typed
+      // parsing as the top-level condition builder's value field, so
+      // "true"/"123"/"on" all resolve to the same runtime type the
+      // backend's evaluate_condition() would expect.
+      step.parameters[key] = automParseLooseValue(inp.value);
+    } else {
+      step.parameters[key] = inp.value;
+    }
+  }));
+  // P0.14 - generic entity picker: `data-entity-key` names which
+  // parameter the picked entity id is written into (defaults to
+  // 'target' for backward compatibility with the pre-P0.14 turn_on/off
+  // picker), so the SAME handler serves the light/switch picker and the
+  // script-only picker (`entity_id`) alike.
+  $$('[data-entity-picker]').forEach(sel => sel.addEventListener('change', () => {
+    if (!sel.value) return;
+    const list = sel.dataset.list, idx = sel.dataset.idx, key = sel.dataset.entityKey || 'target';
+    const target = $(`[data-step-param="${key}"][data-list="${list}"][data-idx="${idx}"]`);
+    if (target) target.value = sel.value;
+    automState.draft[list][idx].parameters[key] = sel.value;
+  }));
+  // P0.14 - comma-separated entity id list for `home_assistant.call_service`,
+  // stored as the HA-native `{target: {entity_id: [...]}}` shape the
+  // backend/ToolManager already expects (see `_extract_call_service_entity_ids()`).
+  $$('[data-step-entity-list]').forEach(inp => inp.addEventListener('input', () => {
+    const list = inp.dataset.list, idx = parseInt(inp.dataset.idx, 10);
+    const step = automState.draft[list][idx];
+    if (!step) return;
+    const ids = inp.value.split(',').map(s => s.trim()).filter(Boolean);
+    step.parameters.target = Object.assign({}, step.parameters.target, {entity_id: ids});
+  }));
+  // P0.14 - JSON textareas (run_script variables, call_service data).
+  // Invalid JSON is left uncommitted (previous valid value stays in the
+  // draft) rather than silently coercing to {} - Validate/Save will
+  // surface a clear error instead of quietly discarding what was typed.
+  $$('[data-step-json]').forEach(ta => ta.addEventListener('input', () => {
+    const list = ta.dataset.list, idx = parseInt(ta.dataset.idx, 10), key = ta.dataset.jsonKey;
+    const step = automState.draft[list][idx];
+    if (!step) return;
+    const raw = ta.value.trim();
+    if (raw === '') { delete step.parameters[key]; ta.classList.remove('autom-json-invalid'); return; }
+    try { step.parameters[key] = JSON.parse(raw); ta.classList.remove('autom-json-invalid'); }
+    catch (e) { ta.classList.add('autom-json-invalid'); }
+  }));
+  $('#autom-add-step-btn')?.addEventListener('click', () => { automState.draft[automState.mode].push({type: '', parameters: {}}); renderAutomationEditor(); });
+  $('#autom-add-delay-btn')?.addEventListener('click', () => { automState.draft.sequence.push({type: 'delay', parameters: {seconds: 1}}); renderAutomationEditor(); });
+  $('#autom-add-wait-btn')?.addEventListener('click', () => { automState.draft.sequence.push({type: 'wait_until', parameters: automDefaultParamsForType('wait_until')}); renderAutomationEditor(); });
+  $('#autom-add-cond-step-btn')?.addEventListener('click', () => { automState.draft.sequence.push({type: 'condition', parameters: automDefaultParamsForType('condition')}); renderAutomationEditor(); });
+  $('#autom-add-stop-btn')?.addEventListener('click', () => { automState.draft.sequence.push({type: 'stop_automation', parameters: {}}); renderAutomationEditor(); });
+
+  // P0.14 - condition (if/then/else) step's own nested conditions list.
+  // Deliberately separate `data-ccond-*` attributes (not `data-cond-*`)
+  // so this never collides with the top-level automation-conditions
+  // handler above - same reasoning as the separate `data-cbranch-*`
+  // handlers below for THEN/ELSE sub-steps.
+  $$('[data-ccond-field]').forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', () => {
+    const idx = parseInt(inp.dataset.idx, 10), cidx = parseInt(inp.dataset.cidx, 10);
+    const step = automState.draft.sequence[idx];
+    if (!step) return;
+    const cond = (step.parameters.conditions || [])[cidx];
+    if (!cond) return;
+    if (inp.dataset.ccondField === 'value') cond.value = automParseLooseValue(inp.value);
+    else cond[inp.dataset.ccondField] = inp.value;
+  }));
+  $$('[data-ccond-remove]').forEach(b => b.addEventListener('click', () => {
+    const [idx, cidx] = b.dataset.ccondRemove.split(':').map(Number);
+    automState.draft.sequence[idx].parameters.conditions.splice(cidx, 1);
+    renderAutomationEditor();
+  }));
+  $$('[data-ccond-add]').forEach(b => b.addEventListener('click', () => {
+    const idx = parseInt(b.dataset.ccondAdd, 10);
+    (automState.draft.sequence[idx].parameters.conditions = automState.draft.sequence[idx].parameters.conditions || []).push({type: 'equals', target: '', value: ''});
+    renderAutomationEditor();
+  }));
+
+  // P0.14 - condition step's THEN/ELSE branch sub-steps. `data-caddr` is
+  // the compact "mainIdx:branch:subIdx" address string used throughout
+  // (mirrors `renderCondBranch()`/`renderCondSubStepFields()`'s own
+  // addressing scheme) so one handler can resolve any nested sub-step.
+  function automCondSubStep(addr) {
+    const [mainIdx, branch, subIdx] = addr.split(':');
+    const step = automState.draft.sequence[parseInt(mainIdx, 10)];
+    if (!step) return null;
+    const arr = step.parameters[branch] || [];
+    return arr[parseInt(subIdx, 10)] || null;
+  }
+  $$('[data-cbranch-type]').forEach(sel => sel.addEventListener('change', () => {
+    const addr = sel.dataset.cbranchType;
+    const [mainIdx, branch, subIdx] = addr.split(':');
+    const step = automState.draft.sequence[parseInt(mainIdx, 10)];
+    if (!step) return;
+    step.parameters[branch][parseInt(subIdx, 10)] = { type: sel.value, parameters: automDefaultParamsForType(sel.value) };
+    renderAutomationEditor();
+  }));
+  $$('[data-cbranch-param]').forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', () => {
+    const sub = automCondSubStep(inp.dataset.caddr);
+    if (!sub) return;
+    if (inp.type === 'number') {
+      if (inp.value === '') { delete sub.parameters[inp.dataset.ckey]; return; }
+      sub.parameters[inp.dataset.ckey] = parseFloat(inp.value);
+    } else {
+      sub.parameters[inp.dataset.ckey] = inp.value;
+    }
+  }));
+  $$('[data-cbranch-remove]').forEach(b => b.addEventListener('click', () => {
+    const [mainIdx, branch, subIdx] = b.dataset.cbranchRemove.split(':');
+    automState.draft.sequence[parseInt(mainIdx, 10)].parameters[branch].splice(parseInt(subIdx, 10), 1);
+    renderAutomationEditor();
+  }));
+  $$('[data-cbranch-add]').forEach(b => b.addEventListener('click', () => {
+    const [mainIdx, branch] = b.dataset.cbranchAdd.split(':');
+    const step = automState.draft.sequence[parseInt(mainIdx, 10)];
+    (step.parameters[branch] = step.parameters[branch] || []).push({type: '', parameters: {}});
+    renderAutomationEditor();
+  }));
+
+  $('#autom-validate-btn')?.addEventListener('click', automValidateDraft);
+  $('#autom-save-btn')?.addEventListener('click', automSaveDraft);
+  $('#autom-modal-close-btn')?.addEventListener('click', closeAutomationEditor);
+  $('#autom-modal-toggle-btn')?.addEventListener('click', async () => {
+    await automToggleEnabled(automState.draft.id, automState.draft.enabled);
+    try { openAutomationEditor(await api('/api/automations/' + encodeURIComponent(automState.draft.id))); } catch (e) {}
+  });
+  $('#autom-modal-run-btn')?.addEventListener('click', () => automRun(automState.draft.id));
+  $('#autom-modal-delete-btn')?.addEventListener('click', async () => {
+    if (!confirm('Delete this automation permanently? This cannot be undone.')) return;
+    try { await api('/api/automations/' + encodeURIComponent(automState.draft.id) + '/delete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}); } catch (e) {}
+    closeAutomationEditor();
+  });
+}
+
+async function loadVision() {
+  try {
+    const v = await api('/api/vision');
+    if (!v.available) {
+      $('#vision-grid').innerHTML = card('Vision', esc(v.error || 'not available'));
+      $('#vision-tracked').innerHTML = '';
+      $('#vision-observations').innerHTML = '';
+      return;
+    }
+    const gridCards = [
+      card('Backend', esc(v.backend)),
+      card('Camera', v.camera_connected === true ? badge('connected', 'ok') : (v.camera_connected === false ? badge('disconnected', 'error') : badge('unknown', 'warn'))),
+      card('FPS', (v.fps || 0).toFixed(1)),
+      card('Latency', (v.latency_ms || 0).toFixed(1) + 'ms'),
+      card('Objects Tracked', v.object_count || 0),
+      card('People Tracked', v.human_count || 0),
+      card('Frames Seen', v.frames_seen || 0),
+      card('Restarts', v.restart_count || 0),
+    ];
+    // Sprint 71 (Camera Patrol) - additive only, per that sprint's own
+    // Phase 10 ("Jangan merombak dashboard camera yang sudah ada"): a
+    // Patrol card is shown whenever the backend response includes
+    // patrol_state at all (i.e. a CameraPatrolModule is wired up), never
+    // replacing/reordering any of the cards above.
+    if (v.patrol_state !== undefined && v.patrol_state !== null) {
+      const patrolBadgeStatus = {idle: 'warn', starting: 'warn', moving: 'ok', dwelling: 'ok', completed: 'ok', stopped: 'warn', failed: 'error'}[v.patrol_state] || 'warn';
+      gridCards.push(card('Patrol', badge(v.patrol_state, patrolBadgeStatus)));
+      if (v.patrol_route) gridCards.push(card('Patrol Route', esc(v.patrol_route)));
+      if (v.patrol_preset) gridCards.push(card('Patrol Preset', esc(v.patrol_preset)));
+      if (v.patrol_cycle) gridCards.push(card('Patrol Cycle', v.patrol_max_cycles ? `${v.patrol_cycle}/${v.patrol_max_cycles}` : String(v.patrol_cycle)));
+      if (v.patrol_state === 'failed' && v.patrol_reason) gridCards.push(card('Patrol Failure Reason', esc(v.patrol_reason)));
+    }
+    $('#vision-grid').innerHTML = gridCards.join('');
+    const objectRows = (v.objects || []).map(o => `<tr>
+      <td>${esc(o.id)}</td><td>${esc(o.label)}</td><td>${o.confidence}</td>
+      <td>${esc(JSON.stringify(o.bbox))}</td><td>${(o.tracking_age_s || 0).toFixed(1)}s</td>
+    </tr>`).join('');
+    const humanRows = (v.humans || []).map(h => `<tr>
+      <td>${esc(h.tracking_id)}</td><td>${esc(h.posture)}</td><td>${esc(h.facing)}</td>
+      <td>${fmtBool(h.hand_raised)}</td><td>${esc(h.presence)}</td>
+    </tr>`).join('');
+    $('#vision-tracked').innerHTML = `
+      <table><thead><tr><th>ID</th><th>Label</th><th>Confidence</th><th>BBox</th><th>Tracking Age</th></tr></thead>
+      <tbody>${objectRows || '<tr><td colspan="5" class="muted">nothing tracked right now</td></tr>'}</tbody></table>
+      <table style="margin-top:12px"><thead><tr><th>ID</th><th>Posture</th><th>Facing</th><th>Hand Raised</th><th>Presence</th></tr></thead>
+      <tbody>${humanRows || '<tr><td colspan="5" class="muted">no one tracked right now</td></tr>'}</tbody></table>`;
+    $('#vision-observations').innerHTML = (v.latest_observations || []).map(o => `<li>${esc(o)}</li>`).join('') || '<li class="muted">none yet</li>';
+  } catch (e) {}
+}
+
+async function loadVisionMemory() {
+  try {
+    const search = $('#vm-search').value;
+    const v = await api('/api/vision_memory?search=' + encodeURIComponent(search) + '&limit=50');
+    const rows = v.events.map(e => `<tr>
+      <td>${new Date(e.timestamp).toLocaleString()}</td>
+      <td>${esc(e.description)}</td>
+      <td>${esc(e.category)}</td>
+      <td>${e.importance}</td>
+    </tr>`).join('');
+    const ltm = (v.long_term_memory || []).map(m => `<li>${esc(m.statement)} <span class="muted">(confidence ${m.confidence})</span></li>`).join('');
+    $('#visionmemory-body').innerHTML = `
+      <table><thead><tr><th>Time</th><th>Observation</th><th>Category</th><th>Importance</th></tr></thead><tbody>${rows}</tbody></table>
+      <h2 style="margin-top:16px">Long-Term Memory</h2>
+      <ul>${ltm || '<li class="muted">none</li>'}</ul>`;
+  } catch (e) {}
+}
+$('#vm-search').addEventListener('input', debounce(loadVisionMemory, 300));
+
+// -- Proactive Goals ----------------------------------------------------------
+function goalRow(g, showActions) {
+  const policy = g.policy || {};
+  const actions = showActions ? `
+    <td>
+      <button class="btn" data-approve="${esc(g.id)}">Approve</button>
+      <button class="btn danger" data-reject="${esc(g.id)}">Reject</button>
+    </td>` : '';
+  return `<tr>
+    <td>${esc(g.description)}</td>
+    <td>${g.confidence}</td>
+    <td>${esc(g.reasoning)}</td>
+    <td>${esc(policy.action || '-')}<br><span class="muted">${esc(policy.reasoning || '')}</span></td>
+    <td>${g.cooldown_remaining_s != null ? g.cooldown_remaining_s + 's' : '-'}</td>
+    <td>${badge(g.status)}</td>
+    ${actions}
+  </tr>`;
+}
+function goalTable(goals, showActions) {
+  const headCols = '<th>Description</th><th>Confidence</th><th>Reasoning</th><th>Policy</th><th>Cooldown</th><th>Status</th>' + (showActions ? '<th>Actions</th>' : '');
+  const rows = (goals || []).map(g => goalRow(g, showActions)).join('');
+  return `<table><thead><tr>${headCols}</tr></thead><tbody>${rows || `<tr><td colspan="${showActions ? 7 : 6}" class="muted">none</td></tr>`}</tbody></table>`;
+}
+async function loadGoals() {
+  try {
+    const g = await api('/api/goals');
+    if (!g.available) {
+      $('#goals-grid').innerHTML = card('Goals', esc(g.error || 'not available'));
+      $('#goals-awaiting').innerHTML = '';
+      $('#goals-active').innerHTML = '';
+      $('#goals-completed').innerHTML = '';
+      $('#goals-rejected').innerHTML = '';
+      return;
+    }
+    $('#goals-grid').innerHTML = [
+      card('Enabled', g.enabled ? badge('yes', 'ok') : badge('no', 'error')),
+      card('Cycle Count', g.cycle_count),
+      card('Last Cycle', g.last_cycle_at ? new Date(g.last_cycle_at).toLocaleString() : '-'),
+      card('Active / Queued', (g.active_goals || []).length),
+      card('Awaiting Confirmation', (g.awaiting_confirmation || []).length),
+    ].join('');
+    $('#goals-awaiting').innerHTML = goalTable(g.awaiting_confirmation, true);
+    $('#goals-active').innerHTML = goalTable(g.active_goals, false);
+    $('#goals-completed').innerHTML = goalTable(g.completed_goals, false);
+    $('#goals-rejected').innerHTML = goalTable(g.rejected_goals, false);
+    $$('#goals-awaiting [data-approve]').forEach(btn => {
+      btn.addEventListener('click', () => decideGoal('approve_goal', btn.dataset.approve));
+    });
+    $$('#goals-awaiting [data-reject]').forEach(btn => {
+      btn.addEventListener('click', () => decideGoal('reject_goal', btn.dataset.reject));
+    });
+  } catch (e) {}
+}
+async function decideGoal(control, goalId) {
+  try {
+    await api('/api/controls/' + control, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({goal_id: goalId})});
+  } catch (e) {}
+  loadGoals();
+}
+
+async function loadRouting() {
+  try {
+    const s = await api('/api/routing');
+    if (!s.available) { $('#routing-grid').innerHTML = card('Decision Engine', 'not available'); return; }
+    const cfg = s.config || {};
+    const stats = s.stats || {};
+
+    $('#routing-grid').innerHTML = [
+      card('Auto Routing', fmtBool(cfg.enable_auto_routing)),
+      card('Cost Optimizer', fmtBool(cfg.enable_cost_optimizer)),
+      card('Provider Affinity', fmtBool(cfg.enable_provider_affinity)),
+      card('Web Search (Tavily)', fmtBool(cfg.enable_web_search) + (s.web_search_available ? '' : ' (not configured)')),
+      card('Default Provider', badge(cfg.default_provider_alias || '-')),
+      card('Reasoning Provider', badge(cfg.reasoning_provider_alias || '-')),
+      card('Reasoning Threshold', esc(cfg.reasoning_complexity_threshold || '-')),
+      card('Total Decisions', stats.total_decisions || 0),
+      card('Internet Searches Triggered', stats.internet_searches || 0),
+      card('Knowledge Shortcuts (skipped internet)', stats.knowledge_shortcuts || 0),
+      card('Affinity Applied (sticky reuse)', stats.affinity_applied || 0),
+    ].join('');
+
+    const byAlias = stats.by_provider_alias || {};
+    const byIntent = stats.by_intent || {};
+    const aliasRows = Object.keys(byAlias).map(k => `<tr><td>${esc(k)}</td><td>${byAlias[k]}</td></tr>`).join('');
+    const intentRows = Object.keys(byIntent).map(k => `<tr><td>${esc(k)}</td><td>${byIntent[k]}</td></tr>`).join('');
+    $('#routing-breakdown').innerHTML = `
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <table><thead><tr><th>Provider Alias</th><th>Count</th></tr></thead><tbody>${aliasRows || '<tr><td colspan="2">no decisions yet</td></tr>'}</tbody></table>
+        <table><thead><tr><th>Primary Intent</th><th>Count</th></tr></thead><tbody>${intentRows || '<tr><td colspan="2">no decisions yet</td></tr>'}</tbody></table>
+      </div>`;
+
+    const sticky = s.sticky_conversations || {};
+    const stickyRows = Object.keys(sticky).map(k => `<tr><td>${esc(k)}</td><td>${badge(sticky[k])}</td></tr>`).join('');
+    $('#routing-sticky').innerHTML = `<table><thead><tr><th>Conversation</th><th>Sticky Provider</th></tr></thead><tbody>${stickyRows || '<tr><td colspan="2">none - every conversation on its own default routing</td></tr>'}</tbody></table>`;
+
+    const recent = (stats.recent || []).slice().reverse().slice(0, 30);
+    const recentRows = recent.map(d => `<tr>
+      <td>${esc(new Date((d.timestamp || 0) * 1000).toLocaleTimeString())}</td>
+      <td>${esc(d.primary_intent)}</td>
+      <td>${esc(d.complexity)}</td>
+      <td>${esc(d.knowledge_source)}</td>
+      <td>${fmtBool(d.knowledge_hit)}</td>
+      <td>${fmtBool(d.needs_internet)}</td>
+      <td>${badge(d.provider_alias)} &rarr; ${esc(d.provider || '-')}</td>
+      <td>${fmtBool(d.affinity_applied)}</td>
+      <td title="${esc((d.reasoning || []).join(' | '))}">${esc((d.text || '').slice(0, 60))}</td>
+    </tr>`).join('');
+    $('#routing-recent').innerHTML = `<table><thead><tr><th>Time</th><th>Intent</th><th>Complexity</th><th>Knowledge Source</th><th>Hit</th><th>Internet</th><th>Provider</th><th>Affinity</th><th>Text</th></tr></thead><tbody>${recentRows || '<tr><td colspan="9">no decisions yet</td></tr>'}</tbody></table>`;
+  } catch (e) {}
+}
+
+function verificationStatusBadge(status) {
+  if (status === 'verified') return badge('verified', 'ok');
+  if (status === 'failed') return badge('failed', 'error');
+  if (status === 'timeout') return badge('timeout', 'warn');
+  return badge('in progress', 'warn');
+}
+
+async function loadVerification() {
+  try {
+    const v = await api('/api/verification');
+    if (!v.available) { $('#verification-grid').innerHTML = card('Smart Home Verification', 'not available'); $('#verification-history').innerHTML = ''; return; }
+
+    const history = (v.history || []);
+    const verified = history.filter(r => r.verification_status === 'verified').length;
+    const failed = history.filter(r => r.verification_status === 'failed').length;
+    const timedOut = history.filter(r => r.verification_status === 'timeout').length;
+    const inProgress = history.filter(r => r.verification_status === 'in_progress').length;
+
+    $('#verification-grid').innerHTML = [
+      card('Verified', verified),
+      card('Failed', failed),
+      card('Timed Out', timedOut),
+      card('In Progress', inProgress),
+    ].join('');
+
+    const rows = history.slice().reverse().map(r => `<tr>
+      <td title="${esc(r.request_id)}">${esc((r.request_id || '').slice(0, 12))}</td>
+      <td>${esc(r.entity_id || '-')}</td>
+      <td>${esc(r.service || '-')}</td>
+      <td>${esc(r.expected_state || '-')}</td>
+      <td>${esc(r.actual_state === null || r.actual_state === undefined ? '-' : r.actual_state)}</td>
+      <td>${verificationStatusBadge(r.verification_status)}</td>
+      <td>${r.retry_count || 0}</td>
+      <td>${r.elapsed_time_ms === null || r.elapsed_time_ms === undefined ? '-' : r.elapsed_time_ms.toFixed(1) + 'ms'}</td>
+      <td>${esc(r.failure_reason || '-')}</td>
+      <td>${esc(r.final_result || '-')}</td>
+    </tr>`).join('');
+    $('#verification-history').innerHTML = `<table><thead><tr>
+      <th>Request ID</th><th>Entity</th><th>Service</th><th>Expected State</th><th>Actual State</th>
+      <th>Verification Status</th><th>Retry Count</th><th>Elapsed Time</th><th>Failure Reason</th><th>Final Result</th>
+    </tr></thead><tbody>${rows || '<tr><td colspan="10">no verified actions yet</td></tr>'}</tbody></table>`;
+  } catch (e) {}
+}
+
+async function loadMemoryRetrieval(query) {
+  try {
+    const q = query != null ? query : $('#mr-query').value;
+    if (!q) { $('#memoryretrieval-body').innerHTML = '<p class="muted">Type a question above and click Preview.</p>'; return; }
+    const m = await api('/api/memory_retrieval?query=' + encodeURIComponent(q));
+    const rows = m.memories.map(x => `<tr>
+      <td>${esc(x.source)}</td>
+      <td>${x.score}</td>
+      <td>${fmtBool(x.stale)}</td>
+      <td>${esc(x.text)}</td>
+    </tr>`).join('');
+    $('#memoryretrieval-body').innerHTML = `
+      <div class="grid">
+        ${card('Retrieval Mode', esc(m.retrieval_mode))}
+        ${card('Token Estimate', m.token_estimate)}
+        ${card('Results', m.memories.length)}
+      </div>
+      <table><thead><tr><th>Source</th><th>Score</th><th>Stale</th><th>Text</th></tr></thead><tbody>${rows}</tbody></table>
+      <h2 style="margin-top:16px">Injected Prompt Preview</h2>
+      <pre class="block">${esc(m.prompt_block || '(nothing would be injected)')}</pre>`;
+  } catch (e) {}
+}
+$('#mr-run').addEventListener('click', () => loadMemoryRetrieval());
+
+async function loadHealth() {
+  try {
+    const h = await api('/api/health');
+    $('#health-grid').innerHTML = [
+      card('Overall', h.overall_healthy ? badge('healthy', 'ok') : badge('degraded', 'warn')),
+      card('CPU', h.cpu_percent != null ? h.cpu_percent.toFixed(1) + '%' : 'n/a'),
+      card('RAM', h.ram_percent != null ? h.ram_percent.toFixed(1) + '%' : 'n/a'),
+      card('Disk', h.disk_percent != null ? h.disk_percent.toFixed(1) + '%' : 'n/a'),
+      card('GPU', h.gpu ? h.gpu.utilization_percent.toFixed(1) + '%' : 'n/a'),
+      card('SQLite', h.sqlite_ok ? badge('ok', 'ok') : badge('error', 'error')),
+      card('Thread Count', h.thread_count),
+      card('Queue Size', h.queue_size),
+      card('Avg Event Latency', h.avg_event_latency_ms.toFixed(2) + 'ms'),
+      card('Uptime', Math.round(h.uptime_s) + 's'),
+    ].join('');
+    const rows = Object.entries(h.modules).map(([name, s]) => `<tr>
+      <td>${esc(name)}</td>
+      <td>${s.healthy ? badge('healthy', 'ok') : badge('unhealthy', 'error')}</td>
+      <td>${esc(s.message || '-')}</td>
+    </tr>`).join('');
+    $('#health-modules').innerHTML = `<table><thead><tr><th>Module</th><th>Health</th><th>Message</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) {}
+}
+
+async function loadStatistics() {
+  try {
+    const s = await api('/api/statistics');
+    $('#statistics-grid').innerHTML = [
+      card('Runtime Uptime', Math.round(s.runtime_uptime_s) + 's'),
+      card('Conversations Today', s.conversations_today),
+      card('Wake Count', s.wake_count != null ? s.wake_count : '-'),
+      card('Interrupt Count', s.interrupt_count),
+      card('Planner Success Rate', s.planner_success_rate != null ? s.planner_success_rate + '%' : 'n/a'),
+      card('Tool Success Rate', s.tool_success_rate != null ? s.tool_success_rate + '%' : 'n/a'),
+      card('Avg LLM Time', s.average_llm_time_ms != null ? s.average_llm_time_ms + 'ms' : 'n/a'),
+      card('Avg TTS Time', s.average_tts_time_ms != null ? s.average_tts_time_ms + 'ms' : 'n/a'),
+      card('Avg Whisper Time', s.average_whisper_time_ms != null ? s.average_whisper_time_ms + 'ms' : 'n/a'),
+      card('Avg End-to-End', s.average_end_to_end_response_time_ms != null ? s.average_end_to_end_response_time_ms + 'ms' : 'n/a'),
+    ].join('');
+  } catch (e) {}
+}
+
+async function loadConfiguration() {
+  try {
+    const c = await api('/api/configuration');
+    const search = ($('#cfg-search').value || '').toLowerCase();
+    const entries = Object.entries({...c.launcher, ...c.legacy_config}).filter(([k]) => k.toLowerCase().includes(search));
+    const rows = entries.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(JSON.stringify(v))}</td></tr>`).join('');
+    $('#configuration-body').innerHTML = `
+      <div class="grid">
+        ${card('Config File', esc(c.config_file_path || 'none'), true)}
+        ${card('.env Loaded', fmtBool(c.env_file_loaded))}
+      </div>
+      <h2>Precedence</h2>
+      <ol class="muted">${c.precedence.map(p => `<li>${esc(p)}</li>`).join('')}</ol>
+      <h2>Values (read-only, secrets hidden)</h2>
+      <table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) {}
+}
+$('#cfg-search').addEventListener('input', debounce(loadConfiguration, 200));
+
+// -- Controls -----------------------------------------------------------------
+const CONTROLS = [
+  ['reload_configuration', 'Reload Configuration'],
+  ['restart_runtime', 'Restart Runtime'],
+  ['sleep_session', 'Sleep Session'],
+  ['wake_session', 'Wake Session'],
+  ['clear_planner_queue', 'Clear Planner Queue'],
+  ['cancel_current_llm', 'Cancel Current LLM'],
+  ['stop_speech', 'Stop Speech'],
+  ['resume_speech', 'Resume Speech'],
+  ['emergency_stop', 'Emergency Stop'],
+  ['emergency_clear', 'Clear Emergency'],
+];
+function renderControls() {
+  $('#controls-grid').innerHTML = CONTROLS.map(([id, label]) =>
+    `<button class="btn${id.includes('emergency') ? ' danger' : ''}" data-control="${id}">${label}</button>`).join('') +
+    `<div class="card"><div class="label">Restart Module</div>
+      <input type="text" id="ctl-module-name" placeholder="module name" style="width:100%;margin-bottom:6px">
+      <button class="btn" id="ctl-restart-module">Restart</button></div>` +
+    `<div class="card"><div class="label">Restart Adapter</div>
+      <input type="text" id="ctl-adapter-name" placeholder="adapter name" style="width:100%;margin-bottom:6px">
+      <button class="btn" id="ctl-restart-adapter">Restart</button></div>`;
+
+  $$('#controls-grid [data-control]').forEach(btn => {
+    btn.addEventListener('click', () => runControl(btn.dataset.control, {}));
+  });
+  $('#ctl-restart-module').addEventListener('click', () => runControl('restart_module', {name: $('#ctl-module-name').value}));
+  $('#ctl-restart-adapter').addEventListener('click', () => runControl('restart_adapter', {name: $('#ctl-adapter-name').value}));
+}
+async function runControl(id, body) {
+  $('#controls-result').textContent = 'Running ' + id + '...';
+  try {
+    const res = await api('/api/controls/' + id, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})});
+    $('#controls-result').textContent = (res.ok ? '✓ ' : '✗ ') + res.message;
+  } catch (e) {
+    $('#controls-result').textContent = 'request failed: ' + e;
+  }
+}
+
+// -- Debug mode -----------------------------------------------------------------
+$('#debug-enable').addEventListener('click', () => setDebug(true));
+$('#debug-disable').addEventListener('click', () => setDebug(false));
+async function setDebug(enabled) {
+  const res = await api('/api/controls/debug', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled})});
+  $('#debug-status').textContent = res.debug_enabled ? 'debug ON' : 'debug OFF';
+}
+async function loadDebugContext() {
+  try { const c = await api('/api/context'); $('#debug-context').textContent = JSON.stringify(c.context, null, 2); } catch (e) {}
+}
+
+// -- Event Bus stream -----------------------------------------------------------
+// NOTE: `/api/events/stream` is shared by the Events panel, Debug panel and
+// Chat panel. Every EventSource is a long-lived connection that never
+// closes on its own once opened - opening one PER PANEL (as this used to
+// do) meant switching between Events/Debug/Chat tabs left 2-3 dead SSE
+// connections parked forever, on top of this app's own 3s polling loop and
+// 2s ping loop. Browsers cap concurrent connections per origin at 6 under
+// HTTP/1.1 (which is all `http.server.ThreadingHTTPServer` speaks) - once
+// that cap was hit, any NEW EventSource (e.g. Chat's) would silently queue
+// behind the others and could sit "connecting" indefinitely, so replies
+// published perfectly well server-side never reached the browser at all.
+// Fix: exactly one shared connection, fanned out to whichever panel-level
+// handlers are currently registered.
+let evPaused = false;
+let sharedEventsSource = null;
+const eventsStreamHandlers = [];
+function ensureEventsStream() {
+  if (sharedEventsSource) return;
+  sharedEventsSource = new EventSource('/api/events/stream');
+  sharedEventsSource.onmessage = (msg) => {
+    let rec;
+    try { rec = JSON.parse(msg.data); } catch (e) { return; }
+    for (const handler of eventsStreamHandlers) {
+      try { handler(rec); } catch (e) { /* one bad handler must never break the others */ }
+    }
+  };
+  sharedEventsSource.onerror = () => setOffline(true);
+}
+function onEventsStream(handler) {
+  eventsStreamHandlers.push(handler);
+}
+let evStreamRegistered = false;
+function connectEventsStream() {
+  ensureEventsStream();
+  if (evStreamRegistered) return;
+  evStreamRegistered = true;
+  onEventsStream((rec) => { if (!evPaused) appendEventRecord(rec); });
+}
+function appendEventRecord(rec) {
+  const filter = ($('#ev-filter').value || '').trim();
+  const search = ($('#ev-search').value || '').trim().toLowerCase();
+  if (filter && rec.type !== filter) return;
+  const blob = JSON.stringify(rec.data || {});
+  if (search && !(rec.type.toLowerCase().includes(search) || blob.toLowerCase().includes(search))) return;
+  const box = $('#events-stream');
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.textContent = `#${rec.seq} [${new Date(rec.timestamp).toLocaleTimeString()}] ${rec.type} src=${rec.source || '-'} ${JSON.stringify(rec.data)}`;
+  box.appendChild(div);
+  while (box.children.length > 500) box.removeChild(box.firstChild);
+  if ($('#ev-autoscroll').checked) box.scrollTop = box.scrollHeight;
+}
+$('#ev-pause').addEventListener('click', () => { evPaused = !evPaused; $('#ev-pause').textContent = evPaused ? 'Resume' : 'Pause'; });
+$('#ev-clear').addEventListener('click', () => { $('#events-stream').innerHTML = ''; });
+
+let debugStreamRegistered = false;
+function connectDebugStream() {
+  ensureEventsStream();
+  if (debugStreamRegistered) return;
+  debugStreamRegistered = true;
+  onEventsStream((rec) => {
+    const box = $('#debug-stream');
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    div.textContent = JSON.stringify(rec);
+    box.appendChild(div);
+    while (box.children.length > 300) box.removeChild(box.firstChild);
+    box.scrollTop = box.scrollHeight;
+  });
+}
+
+// -- Logs stream ------------------------------------------------------------
+let logPaused = false, logSource = null;
+function connectLogsStream() {
+  if (logSource) return;
+  logSource = new EventSource('/api/logs/stream');
+  logSource.onmessage = (msg) => {
+    if (logPaused) return;
+    try { appendLogRecord(JSON.parse(msg.data)); } catch (e) {}
+  };
+  logSource.onerror = () => setOffline(true);
+}
+function appendLogRecord(rec) {
+  const mod = ($('#log-module').value || '').trim().toLowerCase();
+  const level = $('#log-level').value;
+  const search = ($('#log-search').value || '').trim().toLowerCase();
+  const reqid = ($('#log-reqid').value || '').trim();
+  if (mod && (rec.module || '').toLowerCase() !== mod) return;
+  if (level && rec.level !== level) return;
+  if (search && !rec.raw.toLowerCase().includes(search)) return;
+  if (reqid && rec.request_id !== reqid) return;
+  const box = $('#logs-stream');
+  const div = document.createElement('div');
+  div.className = 'log-line level-' + rec.level;
+  div.textContent = rec.raw;
+  box.appendChild(div);
+  while (box.children.length > 1000) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+$('#log-pause').addEventListener('click', () => { logPaused = !logPaused; $('#log-pause').textContent = logPaused ? 'Resume' : 'Pause'; });
+$('#log-clear').addEventListener('click', () => { $('#logs-stream').innerHTML = ''; });
+
+// -- Chat -----------------------------------------------------------------------
+let chatVoiceEnabled = false, chatAwaitingReply = false, chatTypingEl = null;
+let chatLastPlayedRequestId = null;
+// Bug fix: 'stop'/'cancel' typed into chat while Luno was speaking used
+// to hang the Send button until the 45s safety-net fired ("No reply
+// after 45s") - BargeInModule's own acknowledgement ("Okay."/"Sure.")
+// never goes through the LLM at all, so it publishes a raw
+// `speak_request` event (see barge_in/manager.py), NOT `assistant_response`
+// (that event is reserved for genuine LLM replies - see fish_audio.py's
+// own docstring for why those two are deliberately kept separate). This
+// set tracks every request_id already rendered as a chat bubble (via
+// EITHER event) so a normal turn's `speak_request` - which fires with
+// the SAME request_id right after its own `assistant_response` already
+// rendered it, purely to drive TTS - is never shown twice, while a
+// `speak_request` with a request_id that never got an `assistant_response`
+// (barge-in ack, confirm prompt, wake acknowledgement, proactive
+// announcement) still shows up and clears the awaiting-reply state.
+let chatRenderedRequestIds = new Set();
+
+function addChatBubble(role, text, meta) {
+  const box = $('#chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble ' + role;
+  div.innerHTML = esc(text).replace(/\n/g, '<br>') + (meta ? `<span class="meta">${esc(meta)}</span>` : '');
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+function showTyping() {
+  hideTyping();
+  const box = $('#chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble assistant typing-dots';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  chatTypingEl = div;
+}
+function hideTyping() {
+  if (chatTypingEl) { chatTypingEl.remove(); chatTypingEl = null; }
+}
+
+function setChatAwaitingReply(awaiting) {
+  chatAwaitingReply = awaiting;
+  $('#chat-send').disabled = awaiting;
+  $('#chat-mic').disabled = awaiting || !micRecognizer;
+}
+
+let chatAwaitTimeoutId = null;
+
+async function sendChat() {
+  const input = $('#chat-input');
+  const text = input.value.trim();
+  if (!text || chatAwaitingReply) return;
+  input.value = '';
+  addChatBubble('user', text);
+  $('#chat-status').textContent = '';
+  setChatAwaitingReply(true);
+  showTyping();
+  // Safety net: if nothing (assistant_response/llm_error/planner_failed)
+  // clears the awaiting-reply state within 45s - e.g. a plan that fails
+  // silently with no llm_error - the Send button must never stay stuck
+  // disabled forever.
+  clearTimeout(chatAwaitTimeoutId);
+  chatAwaitTimeoutId = setTimeout(() => {
+    if (chatAwaitingReply) {
+      hideTyping();
+      setChatAwaitingReply(false);
+      addChatBubble('system', 'No reply after 45s - you can try sending again.');
+    }
+  }, 45000);
+  try {
+    const res = await api('/api/chat/send', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text})});
+    if (!res.ok) {
+      hideTyping();
+      setChatAwaitingReply(false);
+      clearTimeout(chatAwaitTimeoutId);
+      addChatBubble('error', res.message || 'failed to send message');
+    }
+    // on success we just wait for assistant_response over the SSE stream below,
+    // which is what clears the awaiting-reply state (see handleChatEvent).
+  } catch (e) {
+    hideTyping();
+    setChatAwaitingReply(false);
+    clearTimeout(chatAwaitTimeoutId);
+    addChatBubble('error', 'request failed: ' + e);
+  }
+}
+
+// Live "is Luno asleep or awake, and for how much longer" badge - the
+// direct answer to "I don't know when she's sleeping or how long she
+// stays awake": reads the exact same /api/conversation the separate
+// Conversation tab already shows, just surfaced right where you're
+// actually looking (the Chat panel) instead of requiring a second tab.
+// Picked up by the app's existing 3s-while-panel-active poll loop (see
+// onPanelShown's `loaders` dispatch below) - no separate timer needed.
+async function loadChatSessionStatus() {
+  try {
+    const c = await api('/api/conversation');
+    const badge = $('#chat-session-badge');
+    const state = c.raw_state || 'unknown';
+    badge.className = 'chat-session-badge state-' + state;
+    let label;
+    if (state === 'sleeping') {
+      label = 'Sleeping - say the wake word to start talking';
+    } else if (state === 'thinking') {
+      label = 'Thinking...';
+    } else if (state === 'speaking') {
+      label = 'Speaking...';
+    } else {
+      // listening / waiting_user / idle / awakening: awake and the
+      // inactivity clock is what decides how much longer that lasts.
+      const remaining = c.seconds_remaining;
+      label = (c.state || state) + (remaining != null ? ' - sleeps in ' + Math.max(0, Math.round(remaining)) + 's if no reply' : '');
+    }
+    badge.innerHTML = '<span class="dot"></span><span>' + esc(label) + '</span>';
+  } catch (e) { /* best-effort - never blocks chat itself */ }
+}
+
+let chatStreamRegistered = false;
+function connectChatStream() {
+  ensureEventsStream();
+  if (chatStreamRegistered) return;
+  chatStreamRegistered = true;
+  onEventsStream((rec) => handleChatEvent(rec));
+}
+
+function handleChatEvent(rec) {
+  const t = rec.type, d = rec.data || {};
+  // Refresh the sleep/awake badge immediately on any event that changes
+  // session state, rather than waiting for the 3s poll - these are exactly
+  // the moments "when did she go back to sleep?" confusion comes from.
+  if (['wake_word_detected', 'assistant_response', 'speech_playback_started', 'speech_playback_finished', 'speech_playback_cancelled', 'conversation_timeout', 'conversation_ended'].includes(t)) {
+    loadChatSessionStatus();
+  }
+  if (t === 'assistant_response') {
+    hideTyping();
+    setChatAwaitingReply(false);
+    clearTimeout(chatAwaitTimeoutId);
+    if (d.request_id) chatRenderedRequestIds.add(d.request_id);
+    addChatBubble('assistant', d.text || '', d.model || '');
+  } else if (t === 'speak_request') {
+    // See `chatRenderedRequestIds`' own comment above - only render/
+    // unblock for a request_id that hasn't already been shown via
+    // `assistant_response` (a normal turn's own TTS echo).
+    if (!d.request_id || !chatRenderedRequestIds.has(d.request_id)) {
+      if (d.request_id) chatRenderedRequestIds.add(d.request_id);
+      hideTyping();
+      setChatAwaitingReply(false);
+      clearTimeout(chatAwaitTimeoutId);
+      if (d.text) addChatBubble('assistant', d.text);
+    }
+  } else if (t === 'barge_in_action') {
+    // Second half of the same bug fix: SOFT-mode interrupts (the reply
+    // was classified as a fire-and-forget action - opening something,
+    // turning a device on/off - see barge_in/classifier.py's
+    // soft_keywords) and CRITICAL-mode ones (emergency in progress)
+    // deliberately publish NO `speak_request` at all when interrupted
+    // (`BargeInModule._do_soft_interrupt()`/`_do_critical_interrupt()` -
+    // "Interrupt speech only. Do NOT stop the underlying task", nothing
+    // spoken). `speak_request` above never fires for those, so the chat
+    // box stayed stuck disabled until the 45s timeout. `barge_in_action`
+    // is published unconditionally for EVERY interrupt outcome (see
+    // `BargeInModule._record()`) - reacting to it here, regardless of
+    // which action it was, is what actually guarantees the Send button
+    // comes back immediately no matter which SpeakingMode was active.
+    const silentActions = {soft: 'Luno stopped talking (the task keeps running).',
+                            critical_pause: 'Luno paused (emergency in progress).'};
+    hideTyping();
+    setChatAwaitingReply(false);
+    clearTimeout(chatAwaitTimeoutId);
+    if (silentActions[d.action]) addChatBubble('system', silentActions[d.action]);
+  } else if (t === 'wake_word_detected') {
+    addChatBubble('system', 'Luno woke up.');
+  } else if (t === 'llm_error') {
+    hideTyping();
+    setChatAwaitingReply(false);
+    clearTimeout(chatAwaitTimeoutId);
+    addChatBubble('error', 'LLM error: ' + (d.error || 'unknown'));
+  } else if (t === 'planner_failed') {
+    hideTyping();
+    setChatAwaitingReply(false);
+    clearTimeout(chatAwaitTimeoutId);
+    addChatBubble('error', 'Planner error: ' + (d.error || 'unknown'));
+  } else if (t === 'speech_playback_started') {
+    $('#chat-status').textContent = 'Luno is speaking...';
+    if (chatVoiceEnabled && d.request_id && d.request_id !== chatLastPlayedRequestId) {
+      chatLastPlayedRequestId = d.request_id;
+      playChatAudio(d.request_id);
+    }
+  } else if (t === 'speech_playback_finished' || t === 'speech_playback_cancelled') {
+    $('#chat-status').textContent = '';
+  }
+}
+
+async function playChatAudio(requestId) {
+  try {
+    const res = await fetch('/api/chat/audio?request_id=' + encodeURIComponent(requestId));
+    if (!res.ok) return;  // mock backend or nothing captured - silently skip, no real voice to play
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.play().catch(() => {});
+    audio.onended = () => URL.revokeObjectURL(url);
+  } catch (e) { /* voice playback is best-effort */ }
+}
+
+// -- mic (browser Web Speech API - Chrome only) --------------------------------
+const _SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let micRecognizer = null, micListening = false;
+if (_SpeechRecognition) {
+  micRecognizer = new _SpeechRecognition();
+  micRecognizer.continuous = false;
+  micRecognizer.interimResults = true;
+  micRecognizer.onresult = (event) => {
+    let finalText = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+      else $('#chat-input').value = event.results[i][0].transcript;
+    }
+    if (finalText.trim()) {
+      $('#chat-input').value = finalText.trim();
+      sendChat();
+    }
+  };
+  micRecognizer.onend = () => { micListening = false; $('#chat-mic').classList.remove('listening'); };
+  micRecognizer.onerror = () => { micListening = false; $('#chat-mic').classList.remove('listening'); };
+} else {
+  $('#chat-mic').disabled = true;
+  $('#chat-mic').title = 'Voice input not supported in this browser (try Chrome)';
+}
+
+$('#chat-mic').addEventListener('click', () => {
+  if (!micRecognizer) return;
+  if (micListening) { micRecognizer.stop(); return; }
+  micListening = true;
+  $('#chat-mic').classList.add('listening');
+  try { micRecognizer.start(); } catch (e) { micListening = false; $('#chat-mic').classList.remove('listening'); }
+});
+
+$('#chat-send').addEventListener('click', sendChat);
+$('#chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+// -- Wake Listen (continuous browser mic -> raw speech_recognized, NOT auto-wake) --
+// Different from '#chat-mic' above: that one is click-to-talk (fills the
+// input box, you decide when to Send - an explicit action, so
+// /api/chat/send is allowed to force-wake). This one is meant to stand in
+// for a real always-on microphone: it stays on, transcribes everything it
+// hears, and publishes each utterance through /api/controls/
+// browser_mic_utterance -> controls.browser_mic_utterance() -> a raw
+// speech_recognized event with NO force-wake - Luno's own
+// SessionManagerModule wake-word matcher is what decides whether any given
+// utterance actually wakes her up, same as it would for a real microphone.
+// Only runs while this browser tab stays open and its mic permission is
+// granted - it is not a substitute for WHISPER_BACKEND=real if you want
+// wake word detection independent of a browser being open.
+let wakeListenRecognizer = null, wakeListenActive = false, wakeListenRestartTimer = null;
+if (_SpeechRecognition) {
+  wakeListenRecognizer = new _SpeechRecognition();
+  wakeListenRecognizer.continuous = true;
+  wakeListenRecognizer.interimResults = false;
+  wakeListenRecognizer.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (!event.results[i].isFinal) continue;
+      const text = event.results[i][0].transcript.trim();
+      if (!text) continue;
+      // Show it as a normal chat bubble (right side, same as a typed/clicked
+      // message) rather than just a muted status line - visually this
+      // should look exactly like the rest of the conversation: what you
+      // said on the right, what Luno says back on the left (handled
+      // separately by handleChatEvent's 'assistant_response' case below).
+      // Whether it actually WAKES Luno up is still entirely up to
+      // SessionManagerModule's wake-word matcher server-side - this is
+      // purely a "this is what your mic picked up" echo.
+      addChatBubble('user', text, 'heard via Wake Listen');
+      $('#wake-listen-status').textContent = '';
+      api('/api/controls/browser_mic_utterance', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text})}).catch(() => {});
+    }
+  };
+  // The browser API stops itself periodically (silence, background tab,
+  // browser-specific time limits) even with continuous=true - restart
+  // automatically for as long as the toggle is still on, so it behaves
+  // like an always-on mic rather than a one-shot. 'no-speech'/'aborted'
+  // errors are expected and routine here (nobody's talking most of the
+  // time) - only surface something to the user for real failures like a
+  // denied mic permission.
+  wakeListenRecognizer.onend = () => {
+    if (wakeListenActive) { wakeListenRestartTimer = setTimeout(() => { try { wakeListenRecognizer.start(); } catch (e) {} }, 250); }
+  };
+  wakeListenRecognizer.onerror = (event) => {
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      wakeListenActive = false;
+      $('#chat-wake-listen').classList.remove('listening');
+      $('#wake-listen-status').textContent = 'Wake Listen: microphone permission denied in this browser.';
+    }
+    // other errors (no-speech, aborted, network) are left to onend's own restart.
+  };
+} else {
+  $('#chat-wake-listen').disabled = true;
+  $('#chat-wake-listen').title = 'Wake Listen not supported in this browser (try Chrome)';
+}
+
+$('#chat-wake-listen').addEventListener('click', () => {
+  if (!wakeListenRecognizer) return;
+  if (wakeListenActive) {
+    wakeListenActive = false;
+    clearTimeout(wakeListenRestartTimer);
+    wakeListenRecognizer.stop();
+    $('#chat-wake-listen').classList.remove('listening');
+    $('#wake-listen-status').textContent = '';
+    return;
+  }
+  wakeListenActive = true;
+  $('#chat-wake-listen').classList.add('listening');
+  $('#wake-listen-status').textContent = 'Wake Listen on - stays on only while this tab is open.';
+  try { wakeListenRecognizer.start(); } catch (e) {}
+});
+$('#chat-voice-toggle').addEventListener('click', () => {
+  chatVoiceEnabled = !chatVoiceEnabled;
+  $('#chat-voice-toggle').classList.toggle('active', chatVoiceEnabled);
+  $('#chat-voice-toggle').title = chatVoiceEnabled ? 'Voice reply: ON' : 'Voice reply: OFF (needs FISH_AUDIO_BACKEND=real)';
+});
+
+// -- Memory Dashboard -----------------------------------------------------------
+// Observer + control surface over the EXISTING `luno/memory.py` manual-memory
+// store, via `/api/memory/*` (collectors.py's "# Memory Dashboard &
+// Observability" section) - never a second memory system. See
+// docs/change_impact/memory_dashboard.md for the full design.
+let memState = {
+  subtab: 'mem-overview',
+  filters: { lifecycle: 'all', importance: 'all', category: 'all', source: 'all', conflict_status: 'all', search: '', sort: '' },
+  offset: 0,
+  limit: 50,
+  modalOpen: false,
+};
+
+function lifecycleBadgeClass(lc) {
+  if (lc === 'active') return 'ok';
+  if (lc === 'stale') return 'warn';
+  return '';  // archived - neutral, not an error state (archived != deleted)
+}
+
+// Memory Evaluation & Self-Calibration sprint - purely cosmetic mapping
+// from `evaluate_memory()`'s own closed recommendation vocabulary to this
+// dashboard's existing badge classes (no new badge styling added).
+function evaluationBadgeClass(rec) {
+  if (rec === 'reinforce') return 'ok';
+  if (rec === 'review' || rec === 'deprioritize') return 'warn';
+  if (rec === 'archive_candidate') return 'error';
+  return '';  // keep - neutral
+}
+
+// Called by the shared 3s poll (via onPanelShown -> loadMemory) AND by
+// direct user actions. Skips ALL auto-refresh while the detail modal is
+// open so an in-progress edit/read is never yanked out from under the
+// user (see change-impact doc). Deliberately does NOT touch the
+// Maintenance sub-tab - Phase 12's "jangan menjalankan maintenance
+// planner pada setiap page refresh": that tab only ever loads when the
+// user explicitly clicks "Preview".
+function loadMemory() {
+  if (memState.modalOpen) return;
+  if (memState.subtab === 'mem-overview') loadMemoryOverview();
+  else if (memState.subtab === 'mem-browse') loadMemoryList();
+  else if (memState.subtab === 'mem-review') loadMemoryReview();
+}
+
+$$('.subtab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.subtab-btn').forEach(b => b.classList.remove('active'));
+    $$('.subtab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('#' + btn.dataset.subtab).classList.add('active');
+    memState.subtab = btn.dataset.subtab;
+    loadMemory();
+  });
+});
+
+// -- Overview ---------------------------------------------------------------
+async function loadMemoryOverview() {
+  try { renderMemoryOverview(await api('/api/memory/overview')); } catch (e) {}
+}
+function renderMemoryOverview(o) {
+  $('#mem-overview-grid').innerHTML = [
+    card('Total Memories', o.total),
+    card('Active', o.active),
+    card('Stale', o.stale),
+    card('Archived', o.archived),
+    card('Needs Review', o.needs_review),
+    card('Protected (Core)', o.protected),
+    card('Potential Duplicates', o.duplicates),
+    card('Potential Conflicts', o.conflicts),
+    card('Obsolete Candidates', o.obsolete),
+    card('High Usefulness', (o.usefulness || {}).high || 0),
+    card('Low Usefulness', (o.usefulness || {}).low || 0),
+    card('Total Positive Feedback', o.total_positive_feedback || 0),
+    card('Total Negative Feedback', o.total_negative_feedback || 0),
+    card('Evaluation: Reinforce', (o.evaluation_recommendations || {}).reinforce || 0),
+    card('Evaluation: Review', (o.evaluation_recommendations || {}).review || 0),
+    card('Evaluation: Deprioritize', (o.evaluation_recommendations || {}).deprioritize || 0),
+    card('Evaluation: Archive Candidate', (o.evaluation_recommendations || {}).archive_candidate || 0),
+  ].join('');
+
+  const importance = o.importance || {};
+  const maxImp = Math.max(1, ...['0', '1', '2', '3', '4'].map(k => importance[k] || 0));
+  $('#mem-importance-bars').innerHTML = ['0', '1', '2', '3', '4'].map(lvl => {
+    const v = importance[lvl] || 0;
+    const pct = Math.round((v / maxImp) * 100);
+    return `<div class="imp-bar-row"><span class="imp-label">Level ${lvl}</span><div class="imp-bar-track"><div class="imp-bar-fill" style="width:${pct}%"></div></div><span>${v}</span></div>`;
+  }).join('');
+
+  $('#mem-categories').innerHTML = Object.entries(o.categories || {}).map(([k, v]) => `${esc(k)}: ${v}`).join('<br>') || '<span class="muted">none</span>';
+  $('#mem-sources').innerHTML = Object.entries(o.sources || {}).map(([k, v]) => `${esc(k)}: ${v}`).join('<br>') || '<span class="muted">none</span>';
+}
+
+// -- Browse & Search ----------------------------------------------------------
+function memoryQueryString() {
+  const f = memState.filters;
+  const params = new URLSearchParams();
+  if (f.lifecycle !== 'all') params.set('lifecycle', f.lifecycle);
+  if (f.importance !== 'all') params.set('importance', f.importance);
+  if (f.category !== 'all') params.set('category', f.category);
+  if (f.source !== 'all') params.set('source', f.source);
+  if (f.conflict_status !== 'all') params.set('conflict_status', f.conflict_status);
+  if (f.search) params.set('search', f.search);
+  if (f.sort) params.set('sort', f.sort);
+  params.set('limit', memState.limit);
+  params.set('offset', memState.offset);
+  return params.toString();
+}
+
+async function loadMemoryList() {
+  try { renderMemoryList(await api('/api/memory/list?' + memoryQueryString())); } catch (e) {}
+}
+
+function renderMemoryList(data) {
+  const items = data.items || [];
+  if (!items.length) {
+    $('#mem-list-body').innerHTML = '<p class="muted">No memories match these filters.</p>';
+  } else {
+    const rows = items.map(m => `<tr class="mem-row" data-id="${esc(m.id)}">
+      <td class="mem-text-cell" title="${esc(m.text)}">${m.is_protected ? '<span class="lock-badge" title="Protected from automatic archival">&#128274;</span> ' : ''}${esc(m.text)}</td>
+      <td>${esc(m.category || '-')}</td>
+      <td>${m.importance}</td>
+      <td>${badge(m.lifecycle, lifecycleBadgeClass(m.lifecycle))}</td>
+      <td>${esc(m.source || '-')}</td>
+      <td>${m.conflict_status === 'ambiguous_conflict' || m.needs_review ? badge('needs review', 'warn') : '-'}</td>
+      <td>${m.usage_count != null ? m.usage_count : (m.retrieval_count || 0)}</td>
+      <td>${m.usefulness != null ? m.usefulness.toFixed(2) : '-'}</td>
+      <td>${(m.positive_feedback_count || 0)}/${(m.negative_feedback_count || 0)}</td>
+      <td>${m.evaluation_score != null ? m.evaluation_score.toFixed(2) : '-'} <span class="muted">(${m.evaluation_confidence != null ? m.evaluation_confidence.toFixed(2) : '-'})</span></td>
+      <td>${badge(m.evaluation_recommendation || 'keep', evaluationBadgeClass(m.evaluation_recommendation))}</td>
+    </tr>`).join('');
+    $('#mem-list-body').innerHTML = `<table><thead><tr><th>Text</th><th>Category</th><th>Imp.</th><th>Lifecycle</th><th>Source</th><th>Conflict</th><th>Uses</th><th>Usefulness</th><th>+/-</th><th>Evaluation (conf.)</th><th>Recommendation</th></tr></thead><tbody>${rows}</tbody></table>`;
+    $$('#mem-list-body .mem-row').forEach(row => row.addEventListener('click', () => openMemoryDetail(row.dataset.id)));
+  }
+  const from = data.total_matched === 0 ? 0 : data.offset + 1;
+  const to = Math.min(data.offset + data.limit, data.total_matched);
+  $('#mem-page-info').textContent = `${from}-${to} of ${data.total_matched}`;
+  $('#mem-page-prev').disabled = data.offset <= 0;
+  $('#mem-page-next').disabled = !data.has_more;
+}
+
+$('#mem-search').addEventListener('input', debounce(() => {
+  memState.filters.search = $('#mem-search').value;
+  memState.offset = 0;
+  loadMemoryList();
+}, 350));
+[['lifecycle', 'mem-f-lifecycle'], ['importance', 'mem-f-importance'], ['category', 'mem-f-category'], ['source', 'mem-f-source'], ['conflict_status', 'mem-f-conflict'], ['sort', 'mem-f-sort']].forEach(([key, id]) => {
+  $('#' + id).addEventListener('change', () => {
+    memState.filters[key] = $('#' + id).value;
+    memState.offset = 0;
+    loadMemoryList();
+  });
+});
+$('#mem-page-prev').addEventListener('click', () => { memState.offset = Math.max(0, memState.offset - memState.limit); loadMemoryList(); });
+$('#mem-page-next').addEventListener('click', () => { memState.offset += memState.limit; loadMemoryList(); });
+
+// -- Detail modal (Phase 4) ---------------------------------------------------
+async function openMemoryDetail(id) {
+  memState.modalOpen = true;
+  try {
+    renderMemoryDetail(await api('/api/memory/' + encodeURIComponent(id)));
+    $('#mem-modal-overlay').classList.add('show');
+  } catch (e) { memState.modalOpen = false; }
+}
+function closeMemoryDetail() {
+  memState.modalOpen = false;
+  $('#mem-modal-overlay').classList.remove('show');
+  loadMemory();  // pick up whatever changed while the modal was open
+}
+$('#mem-modal-overlay').addEventListener('click', (ev) => { if (ev.target.id === 'mem-modal-overlay') closeMemoryDetail(); });
+
+function renderMemoryDetail(d) {
+  if (d.error) {
+    $('#mem-modal-box').innerHTML = `<h2>Not found</h2><p class="muted">Memory ${esc(d.id)} no longer exists (it may have just been deleted).</p><div class="modal-close-row"><button class="btn" id="mem-modal-close">Close</button></div>`;
+    $('#mem-modal-close').addEventListener('click', closeMemoryDetail);
+    return;
+  }
+
+  let conflictHtml = '';
+  if (d.conflict_status === 'ambiguous_conflict') {
+    const siblings = d.conflict_siblings || [];
+    conflictHtml = `<h2 style="margin-top:16px">Conflict</h2>
+      <p class="status-banner status-banner-warn">Multiple memories may describe conflicting truths - nothing here is auto-resolved.</p>
+      <div class="review-group">
+        <div class="side"><strong>CURRENT (this entry)</strong><br>${esc(d.text)}</div>
+        ${siblings.map(s => `<div class="side"><strong>CONFLICTING ENTRY</strong> <span class="muted">(id ${esc(s.id)})</span><br>${esc(s.text)}</div>`).join('')}
+      </div>`;
+  }
+
+  const historyItems = (d.history || []).slice().reverse();
+  const historyHtml = historyItems.length
+    ? historyItems.map(h => `<div class="history-item"><strong>HISTORICAL</strong> - superseded${h.reason ? ' (' + esc(h.reason) + ')' : ''}, ${esc(h.changed_at || 'unknown time')}<br>&ldquo;${esc(h.text)}&rdquo;</div>`).join('')
+    : '<p class="muted">No prior wording recorded - this memory has never been changed.</p>';
+
+  $('#mem-modal-box').innerHTML = `
+    <h2>${d.is_protected ? '&#128274; CORE &mdash; ' : ''}${d.conflict_status === 'ambiguous_conflict' ? '&#9888; NEEDS REVIEW &mdash; ' : ''}Memory Detail</h2>
+    <div class="grid">
+      ${card('ID', esc(d.id), true)}
+      ${card('Category', esc(d.category || '-'))}
+      ${card('Source', esc(d.source || '-'))}
+      ${card('Importance', d.importance)}
+      ${card('Lifecycle', badge(d.lifecycle, lifecycleBadgeClass(d.lifecycle)))}
+      ${card('Created', esc(d.created_at || '-'), true)}
+      ${card('Updated', esc(d.updated_at || '-'), true)}
+      ${card('Usage Count', d.usage_count != null ? d.usage_count : (d.retrieval_count || 0))}
+      ${card('Usefulness', d.usefulness != null ? d.usefulness.toFixed(2) : '-')}
+      ${card('Positive Feedback', d.positive_feedback_count || 0)}
+      ${card('Negative Feedback', d.negative_feedback_count || 0)}
+      ${card('Evaluation Score', d.evaluation_score != null ? d.evaluation_score.toFixed(2) : '-')}
+      ${card('Evaluation Confidence', d.evaluation_confidence != null ? d.evaluation_confidence.toFixed(2) : '-')}
+      ${card('Recommendation', badge((d.evaluation_recommendation || 'keep').replace('_', ' '), evaluationBadgeClass(d.evaluation_recommendation)))}
+      ${card('Last Evaluated', esc(d.last_evaluated_at || 'never'), true)}
+    </div>
+    <h2 style="margin-top:16px">Outcome</h2>
+    <div class="grid">
+      ${card('Retrieval Success', (d.outcome_summary || {}).retrieval_success_count || 0)}
+      ${card('Retrieval Miss', (d.outcome_summary || {}).retrieval_miss_count || 0)}
+      ${card('Feedback Events', (d.outcome_summary || {}).feedback_event_count || 0)}
+      ${card('Corrections', (d.outcome_summary || {}).correction_count || 0)}
+    </div>
+    ${d.is_protected ? '<p class="muted" style="margin-top:10px">Protected from automatic archival (importance=4 or an unresolved conflict) - can still be edited or explicitly deleted by you.</p>' : ''}
+    <h2 style="margin-top:16px">Current (this is what Luno actually uses)</h2>
+    <textarea class="mem-edit" id="mem-edit-text">${esc(d.text)}</textarea>
+    ${conflictHtml}
+    <h2 style="margin-top:16px">Usefulness Explanation</h2>
+    <pre class="small">${esc(d.usefulness_explanation || '')}</pre>
+    <h2 style="margin-top:16px">Why this score? (Evaluation)</h2>
+    <p class="muted small">This measures how useful/confirmed this memory has been so far - it is NOT a claim that its content is factually true. Evidence suggests this memory remains useful (or doesn't) - it does not prove the memory is true.</p>
+    <pre class="small">${esc(d.evaluation_explanation || '')}</pre>
+    <h2 style="margin-top:16px">Why selected / not selected?</h2>
+    <pre class="small">${esc(d.selection_explanation || '')}</pre>
+    <h2 style="margin-top:16px">History / Timeline</h2>
+    ${historyHtml}
+    <p class="chat-status" id="mem-modal-status"></p>
+    <div class="modal-close-row">
+      <button class="btn" id="mem-act-save">Save Edit</button>
+      ${!d.is_protected ? `<button class="btn" id="mem-act-mark-important">Mark Important</button>` : ''}
+      <button class="btn" id="mem-act-feedback-positive">Mark Useful</button>
+      <button class="btn" id="mem-act-feedback-negative">Mark Not Useful</button>
+      <button class="btn" id="mem-act-recalibrate">Recalibrate</button>
+      ${d.lifecycle === 'archived'
+        ? `<button class="btn" id="mem-act-unarchive">Unarchive</button>`
+        : `<button class="btn" id="mem-act-archive">Archive</button>`}
+      <button class="btn danger" id="mem-act-delete">Delete...</button>
+      <button class="btn primary" id="mem-modal-close">Close</button>
+    </div>`;
+
+  $('#mem-modal-close').addEventListener('click', closeMemoryDetail);
+  $('#mem-act-save').addEventListener('click', () => memoryUpdate(d.id, $('#mem-edit-text').value));
+  const markBtn = $('#mem-act-mark-important'); if (markBtn) markBtn.addEventListener('click', () => memoryMarkImportant(d.id));
+  $('#mem-act-feedback-positive').addEventListener('click', () => memoryFeedback(d.id, true));
+  $('#mem-act-feedback-negative').addEventListener('click', () => memoryFeedback(d.id, false));
+  $('#mem-act-recalibrate').addEventListener('click', () => memoryRecalibrate(d.id));
+  const archiveBtn = $('#mem-act-archive'); if (archiveBtn) archiveBtn.addEventListener('click', () => memoryArchive(d.id));
+  const unarchiveBtn = $('#mem-act-unarchive'); if (unarchiveBtn) unarchiveBtn.addEventListener('click', () => memoryUnarchive(d.id));
+  $('#mem-act-delete').addEventListener('click', () => memoryDelete(d.id));
+}
+
+function memModalStatus(msg, ok) {
+  const el = $('#mem-modal-status');
+  if (el) el.innerHTML = `<span style="color:var(--${ok ? 'green' : 'red'})">${ok ? '✓' : '✗'} ${esc(msg)}</span>`;
+}
+
+async function memoryArchive(id) {
+  const r = await api('/api/memory/controls/archive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+  memModalStatus(r.message, r.ok);
+  if (r.ok) openMemoryDetail(id);
+  loadMemoryOverview();
+}
+async function memoryUnarchive(id) {
+  const r = await api('/api/memory/controls/unarchive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+  memModalStatus(r.message, r.ok);
+  if (r.ok) openMemoryDetail(id);
+  loadMemoryOverview();
+}
+async function memoryUpdate(id, text) {
+  const r = await api('/api/memory/controls/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, text }) });
+  memModalStatus(r.message, r.ok);
+  if (r.ok) openMemoryDetail(id);
+  loadMemoryOverview();
+}
+async function memoryMarkImportant(id) {
+  const r = await api('/api/memory/controls/mark_important', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+  memModalStatus(r.message, r.ok);
+  if (r.ok) openMemoryDetail(id);
+  loadMemoryOverview();
+}
+async function memoryFeedback(id, positive) {
+  const path = positive ? '/api/memory/controls/feedback_positive' : '/api/memory/controls/feedback_negative';
+  const r = await api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+  memModalStatus(r.message, r.ok);
+  if (r.ok) openMemoryDetail(id);
+  loadMemoryOverview();
+}
+async function memoryRecalibrate(id) {
+  const r = await api('/api/memory/controls/recalibrate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+  memModalStatus(r.message, r.ok);
+  if (r.ok) openMemoryDetail(id);
+  loadMemoryOverview();
+}
+async function memoryDelete(id) {
+  if (!confirm('Delete this memory permanently? This cannot be undone.')) return;
+  const r = await api('/api/memory/controls/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, confirm: true }) });
+  if (r.ok) { closeMemoryDetail(); } else { memModalStatus(r.message, false); }
+  loadMemoryOverview();
+}
+
+// -- Needs Review (Phase 8) ---------------------------------------------------
+async function loadMemoryReview() {
+  try {
+    const data = await api('/api/memory/conflicts');
+    renderMemoryReview(data.groups || []);
+  } catch (e) {}
+}
+function renderMemoryReview(groups) {
+  if (!groups.length) { $('#mem-review-body').innerHTML = '<p class="muted">No unresolved conflicts right now.</p>'; return; }
+  $('#mem-review-body').innerHTML = groups.map(group => `
+    <div class="review-group">
+      <p class="status-banner status-banner-warn">Multiple memories may describe conflicting truths.</p>
+      ${group.map(m => `<div class="side">
+        <strong>${esc(m.text)}</strong> <span class="muted">(id ${esc(m.id)}, ${esc(m.lifecycle)})</span>
+        <div class="pill-row" style="margin-top:6px">
+          <button class="btn" data-review-open="${esc(m.id)}">Keep both / Open &amp; Update</button>
+          <button class="btn" data-review-archive="${esc(m.id)}">Archive this one</button>
+          <button class="btn danger" data-review-delete="${esc(m.id)}">Delete this one</button>
+        </div>
+      </div>`).join('')}
+    </div>`).join('');
+
+  $$('#mem-review-body [data-review-open]').forEach(b => b.addEventListener('click', () => openMemoryDetail(b.dataset.reviewOpen)));
+  $$('#mem-review-body [data-review-archive]').forEach(b => b.addEventListener('click', async () => {
+    await api('/api/memory/controls/archive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: b.dataset.reviewArchive }) });
+    loadMemoryReview(); loadMemoryOverview();
+  }));
+  $$('#mem-review-body [data-review-delete]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Delete this memory permanently? This cannot be undone.')) return;
+    await api('/api/memory/controls/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: b.dataset.reviewDelete, confirm: true }) });
+    loadMemoryReview(); loadMemoryOverview();
+  }));
+}
+
+// -- Maintenance Center (Phase 9) - Preview first, apply only on explicit
+// confirmation. Deliberately NOT auto-loaded on tab open or by the 3s poll
+// (Phase 12's "jangan menjalankan maintenance planner pada setiap page
+// refresh") - only ever runs when the user clicks "Preview".
+const MAINT_ACTION_LABELS = { archive: 'Archive', consolidate: 'Consolidate', reinforce: 'Reinforce', review: 'Review', keep: 'Keep (no action)' };
+async function loadMemoryMaintenancePreview() {
+  $('#mem-maintenance-body').innerHTML = '<p class="muted">Analyzing...</p>';
+  $('#mem-maint-apply').disabled = true;
+  try {
+    const data = await api('/api/memory/maintenance/preview');
+    renderMemoryMaintenance(data.plan || []);
+  } catch (e) {
+    $('#mem-maintenance-body').innerHTML = '<p class="muted">Preview failed.</p>';
+  }
+}
+function renderMemoryMaintenance(plan) {
+  const grouped = {};
+  plan.forEach(p => { (grouped[p.action] = grouped[p.action] || []).push(p); });
+  const order = ['archive', 'consolidate', 'reinforce', 'review', 'keep'];
+  let html = '';
+  order.forEach(action => {
+    const items = grouped[action];
+    if (!items || !items.length) return;
+    html += `<h2 style="margin-top:16px">${MAINT_ACTION_LABELS[action] || action} (${items.length})</h2>`;
+    html += '<table><thead><tr><th>Memory ID</th><th>Reason</th><th>Confidence</th></tr></thead><tbody>';
+    html += items.map(p => `<tr><td>${esc(p.memory_id)}</td><td>${esc(p.reason)}</td><td>${Math.round((p.confidence || 0) * 100)}%</td></tr>`).join('');
+    html += '</tbody></table>';
+  });
+  $('#mem-maintenance-body').innerHTML = html || '<p class="muted">Nothing to do - every memory is fine as-is.</p>';
+  const hasActionable = plan.some(p => p.action !== 'keep');
+  $('#mem-maint-apply').disabled = !hasActionable;
+}
+$('#mem-maint-preview').addEventListener('click', loadMemoryMaintenancePreview);
+$('#mem-maint-apply').addEventListener('click', async () => {
+  if (!confirm('Apply the maintenance plan shown above? Archive/reinforce/consolidate actions may run - nothing is ever deleted this way, and protected memories are always skipped.')) return;
+  const r = await api('/api/memory/controls/apply_maintenance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: true }) });
+  $('#mem-maintenance-body').insertAdjacentHTML('afterbegin', `<p class="status-banner ${r.ok ? 'status-banner-ok' : 'status-banner-error'}">${esc(r.message)}</p>`);
+  $('#mem-maint-apply').disabled = true;
+  loadMemoryOverview();
+});
+
+// -- Brain Debugger (Memory Decision Trace / Retrieval Funnel / Topic
+//    Timeline / Quality Metrics / Voice Pipeline / Latency Timeline) -------
+// Every function below only formats JSON an `/api/memory/*` or `/api/voice/*`
+// GET already returned - see collectors.py's own "observability only, never
+// recompute" discipline. Nothing here posts a control or changes state.
+const dbgState = { subtab: 'dbg-trace', selectedTurnId: '' };
+
+$$('.dbg-subtab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.dbg-subtab-btn').forEach(b => b.classList.remove('active'));
+    $$('.dbg-subtab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('#' + btn.dataset.dbgtab).classList.add('active');
+    dbgState.subtab = btn.dataset.dbgtab;
+    loadBrainDebugger();
+  });
+});
+
+function loadBrainDebugger() {
+  if (dbgState.subtab === 'dbg-trace') { loadDbgTurnPicker(); loadDbgTrace(); }
+  else if (dbgState.subtab === 'dbg-funnel') loadDbgFunnel();
+  else if (dbgState.subtab === 'dbg-topics') loadDbgTopics();
+  else if (dbgState.subtab === 'dbg-quality') loadDbgQuality();
+  else if (dbgState.subtab === 'dbg-voice') loadDbgVoice();
+  else if (dbgState.subtab === 'dbg-latency') loadDbgLatency();
+}
+
+async function loadDbgTurnPicker() {
+  try {
+    const r = await api('/api/memory/turns');
+    const picker = $('#dbg-turn-picker');
+    const prev = picker.value;
+    picker.innerHTML = '<option value="">Most recent turn</option>' + (r.turns || []).map(t =>
+      `<option value="${esc(t.turn_id)}">${esc(t.turn_id)} - ${esc(t.query_intent || '?')}/${esc(t.reference_type || '?')} (${t.rendered_count} rendered)</option>`
+    ).join('');
+    if (prev && [...picker.options].some(o => o.value === prev)) picker.value = prev;
+  } catch (e) {}
+}
+$('#dbg-turn-refresh').addEventListener('click', loadDbgTurnPicker);
+$('#dbg-turn-picker').addEventListener('change', () => { dbgState.selectedTurnId = $('#dbg-turn-picker').value; loadDbgTrace(); });
+
+function candStatusRow(c) {
+  const cls = c.status === 'RENDERED' ? 'rendered' : 'not-selected';
+  return `<div class="cand-row ${cls}">${c.status === 'RENDERED' ? '✓' : '✗'} <b>${esc(c.status)}</b>
+    - ${esc(c.memory_id)} (source: ${esc(c.source || '?')}${c.relevance != null ? ', relevance: ' + c.relevance : ''}${c.reason ? ', ' + esc(c.reason) : ''})</div>`;
+}
+
+async function loadDbgTrace() {
+  try {
+    const turnId = dbgState.selectedTurnId || $('#dbg-turn-picker').value;
+    const url = '/api/memory/decision_trace' + (turnId ? '?turn_id=' + encodeURIComponent(turnId) : '');
+    const t = await api(url);
+    if (!t.found) { $('#dbg-trace-body').innerHTML = `<p class="muted">${esc(t.reason || 'no turn trace available yet - send a message in Chat first')}</p>`; return; }
+    const q = t.query || {}, ts = t.topic_state || {}, ret = t.retrieval || {};
+    const candidates = (t.candidates || []).map(candStatusRow).join('') || '<p class="muted">no memory candidates this turn</p>';
+    const topicHist = (ts.topic_history || []).map(e => `<div class="topic-entry${e.referenced ? ' referenced' : ''}">
+      terms: ${esc((e.terms || []).join(', '))} - age: ${e.age} turn(s) - ${e.referenced ? 'referenced this turn' : 'not referenced'}
+    </div>`).join('') || '<p class="muted">no topic history yet</p>';
+    $('#dbg-trace-body').innerHTML = `
+      <h2>Turn ${esc(t.turn_id)}${t.conversation_id ? ' &middot; conversation ' + esc(t.conversation_id) : ''}</h2>
+      <div class="grid">
+        ${card('Query Intent', esc(q.query_intent || '(none)'))}
+        ${card('Reference Type', esc(q.reference_type || '(none)'))}
+        ${card('Short Follow-up', fmtBool(q.is_short_followup))}
+        ${card('Retrieval Called', fmtBool(ret.retrieval_called))}
+        ${card('Candidate Count', ret.candidate_count != null ? ret.candidate_count : '-')}
+      </div>
+      <h2 style="margin-top:16px">Active Topic</h2>
+      <p class="muted">${(ts.active_topic_terms || []).length ? esc(ts.active_topic_terms.join(', ')) : 'no active topic'}</p>
+      <h2>Topic History</h2>
+      ${topicHist}
+      <h2 style="margin-top:16px">Memory Candidates -&gt; Rendered?</h2>
+      ${candidates}
+      ${(t.other_selected && ((t.other_selected.verified_facts || []).length || (t.other_selected.episodic_memory || []).length)) ? `
+      <h2 style="margin-top:16px">Also Rendered (verified facts / episodic)</h2>
+      <p class="muted">verified_facts: ${esc((t.other_selected.verified_facts || []).join(', ') || 'none')} &middot; episodic: ${esc((t.other_selected.episodic_memory || []).join(', ') || 'none')}</p>` : ''}
+      ${t.check_memory_id ? `<h2 style="margin-top:16px">Checked Memory</h2><p>${esc(t.check_memory_id)}: <b>${esc(t.check_status)}</b></p>` : ''}
+      <p class="muted" style="margin-top:14px">Note: only two per-candidate states are reliably distinguishable today (RENDERED vs NOT SELECTED) - the funnel tab below shows the aggregate stage-by-stage counts (dedup/ranking/budget) this trace cannot yet split per-candidate.</p>`;
+  } catch (e) {}
+}
+
+function funnelBars(stages) {
+  if (!stages || !stages.length) return '<p class="muted">no funnel data for this turn</p>';
+  const max = Math.max(1, ...stages.map(s => s.count || 0));
+  return stages.map(s => `<div class="funnel-row">
+    <div class="funnel-label">${esc(s.label)}</div>
+    <div class="funnel-track"><div class="funnel-fill" style="width:${Math.round(100 * (s.count || 0) / max)}%"></div></div>
+    <div class="funnel-count">${s.count}</div>
+  </div>`).join('');
+}
+
+async function loadDbgFunnel() {
+  try {
+    const turnId = dbgState.selectedTurnId || $('#dbg-turn-picker').value;
+    const url = '/api/memory/retrieval_funnel' + (turnId ? '?turn_id=' + encodeURIComponent(turnId) : '');
+    const f = await api(url);
+    if (!f.found) { $('#dbg-funnel-body').innerHTML = `<p class="muted">${esc(f.reason || 'no funnel data available yet')}</p>`; return; }
+    $('#dbg-funnel-body').innerHTML = funnelBars(f.funnel);
+  } catch (e) {}
+}
+
+async function loadDbgTopics() {
+  try {
+    const conv = $('#dbg-topic-conv').value.trim();
+    const t = await api('/api/memory/topic_history_timeline' + (conv ? '?conversation_id=' + encodeURIComponent(conv) : ''));
+    const turns = (t.turns || []).map(tt => `<div class="topic-entry${tt.reference_type && tt.reference_type !== 'unknown' ? ' referenced' : ''}">
+      <b>Turn ${esc(tt.turn_id)}</b> (${esc(tt.timestamp || '')}) - reference: ${esc(tt.reference_type || 'unknown')}, short follow-up: ${tt.is_short_followup ? 'yes' : 'no'}<br>
+      active topic: ${esc((tt.active_topic_terms || []).join(', ') || '(none)')}
+    </div>`).join('') || '<p class="muted">no turns recorded yet</p>';
+    const cur = t.current;
+    $('#dbg-topics-body').innerHTML = `
+      <h2>Turn-by-Turn Topic Transitions (${t.turns_available || 0} turns available)</h2>
+      ${turns}
+      ${cur ? `<h2 style="margin-top:16px">Current Active Topic</h2>
+      <p class="muted">${esc((cur.active_topic_terms || []).join(', ') || '(none)')} (age: ${cur.active_topic_age})</p>` : ''}`;
+  } catch (e) {}
+}
+$('#dbg-topic-run').addEventListener('click', loadDbgTopics);
+
+async function loadDbgQuality() {
+  try {
+    const m = await api('/api/memory/quality_metrics');
+    if (!m.sample_size) { $('#dbg-quality-body').innerHTML = '<p class="muted">no turns recorded yet - send a message in Chat first</p>'; return; }
+    const fmtPct = v => (typeof v === 'number') ? v + '%' : esc(v);
+    const fmtDist = d => Object.entries(d || {}).map(([k, v]) => `${esc(k)}: ${v}`).join(', ') || '(none)';
+    $('#dbg-quality-body').innerHTML = `
+      <p class="muted">Computed over the last ${m.sample_size} recorded turn(s) - a bounded rolling sample, not "all time".</p>
+      <div class="grid">
+        ${card('Retrieval Hit Rate', fmtPct(m.retrieval_hit_rate_pct))}
+        ${card('Empty Retrieval Rate', fmtPct(m.empty_retrieval_rate_pct))}
+        ${card('Topic Continuity Hit Rate', fmtPct(m.topic_continuity_hit_rate_pct))}
+        ${card('Topic Candidate Hit Rate', fmtPct(m.topic_candidate_hit_rate_pct))}
+        ${card('Topic Contamination Rate', fmtPct(m.topic_contamination_rate), true)}
+        ${card('Avg Candidate Count', m.average_candidate_count)}
+        ${card('Avg Rendered Context Items', m.average_rendered_context_item_count)}
+        ${card('Avg Prompt Context Size', fmtPct(m.average_prompt_context_size), true)}
+        ${card('Budget Utilization', fmtPct(m.budget_utilization), true)}
+        ${card('Topic Switches', m.topic_switches)}
+        ${card('Topic Returns/References', m.topic_returns_or_references_count)}
+      </div>
+      <div class="grid" style="margin-top:16px">
+        <div class="card"><div class="label">Intent Distribution</div><div class="value small">${esc(fmtDist(m.intent_distribution))}</div></div>
+        <div class="card"><div class="label">Reference Type Distribution</div><div class="value small">${esc(fmtDist(m.reference_type_distribution))}</div></div>
+      </div>`;
+  } catch (e) {}
+}
+
+function fmtMs(v) { return (v === null || v === undefined) ? '-' : v + 'ms'; }
+
+async function loadDbgVoice() {
+  try {
+    const reqId = $('#dbg-voice-reqid').value.trim();
+    const v = await api('/api/voice/pipeline' + (reqId ? '?request_id=' + encodeURIComponent(reqId) : ''));
+    if (!v.found) { $('#dbg-voice-body').innerHTML = `<p class="muted">${esc(v.reason || 'no voice pipeline activity recorded yet')}</p>`; return; }
+    const l = v.latencies_ms || {};
+    const chunks = (v.chunks || []).map(c => `<tr>
+      <td>${c.chunk_index}</td><td>${esc(c.chunk_synthesis_time_s ?? '-')}</td><td>${esc(c.playback_s ?? '-')}</td><td>${esc(c.total_s ?? '-')}</td><td>${c.gap_before_ms ?? '-'}</td>
+    </tr>`).join('');
+    $('#dbg-voice-body').innerHTML = `
+      <h2>Request ${esc(v.request_id)}${v.conversation_id ? ' &middot; conversation ' + esc(v.conversation_id) : ''}</h2>
+      <div class="grid">
+        ${card('LLM First-Token Latency', fmtMs(l.llm_first_token))}
+        ${card('LLM Total Latency', fmtMs(l.llm_total))}
+        ${card('First Audio Latency', fmtMs(l.first_audio))}
+        ${card('Playback Duration', fmtMs(l.playback_duration))}
+        ${card('Total Turn Latency', fmtMs(l.total_turn))}
+        ${card('Streaming Enabled', fmtBool(v.streaming_enabled))}
+        ${card('Pipelined Playback', fmtBool(v.pipelined_playback_enabled))}
+        ${card('Cancelled', fmtBool(v.cancelled))}
+        ${card('Pause / Resume Count', (v.pause_count || 0) + ' / ' + (v.resume_count || 0))}
+      </div>
+      <h2 style="margin-top:16px">Per-Chunk TTS Detail</h2>
+      ${chunks ? `<table><thead><tr><th>Chunk</th><th>Synthesis (s)</th><th>Playback (s)</th><th>Total (s)</th><th>Gap Before (ms)</th></tr></thead><tbody>${chunks}</tbody></table>` : '<p class="muted">no per-chunk log detail captured for this request (non-chunked reply, or logs already rotated out of the bounded buffer)</p>'}`;
+  } catch (e) {}
+}
+$('#dbg-voice-run').addEventListener('click', loadDbgVoice);
+
+async function loadDbgLatency() {
+  try {
+    const t = await api('/api/voice/latency_timeline');
+    const rows = (t.turns || []).map(tt => { const l = tt.latencies_ms || {}; return `<tr>
+      <td title="${esc(tt.request_id)}">${esc((tt.request_id || '').slice(0, 16))}</td>
+      <td>${fmtMs(l.llm_first_token)}</td><td>${fmtMs(l.llm_total)}</td><td>${fmtMs(l.first_audio)}</td>
+      <td>${fmtMs(l.playback_duration)}</td><td>${fmtMs(l.total_turn)}</td>
+      <td>${fmtBool(tt.cancelled)}</td><td>${tt.pause_count || 0}</td>
+    </tr>`; }).join('');
+    $('#dbg-latency-body').innerHTML = `<table><thead><tr>
+      <th>Request</th><th>LLM First Token</th><th>LLM Total</th><th>First Audio</th><th>Playback</th><th>Total Turn</th><th>Cancelled</th><th>Pauses</th>
+    </tr></thead><tbody>${rows || '<tr><td colspan="8">no voice turns recorded yet</td></tr>'}</tbody></table>`;
+  } catch (e) {}
+}
+
+// -- misc ---------------------------------------------------------------------
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+function onPanelShown(name) {
+  const loaders = {
+    home: loadHome, modules: loadModules, adapters: loadAdapters, llm: loadLLM, conversation: loadConversation,
+    planner: loadPlanner, toolmanager: loadToolManager, automations: loadAutomations, automationengine: loadAutomation, vision: loadVision, visionmemory: loadVisionMemory,
+    health: loadHealth, statistics: loadStatistics, configuration: loadConfiguration,
+    chat: loadChatSessionStatus, goals: loadGoals, routing: loadRouting, verification: loadVerification,
+    memory: loadMemory, braindebugger: loadBrainDebugger,
+  };
+  if (loaders[name]) loaders[name]();
+  if (name === 'chat') connectChatStream();
+  if (name === 'events') connectEventsStream();
+  if (name === 'logs') connectLogsStream();
+  if (name === 'debug') { connectDebugStream(); loadDebugContext(); }
+}
+
+// -- polling loop for status-ish panels (avoid polling on hidden panels) --------
+setInterval(() => {
+  const active = $('nav.sidebar button.active').dataset.panel;
+  onPanelShown(active);
+}, 3000);
+
+// initial ping loop (drives the offline banner independent of which panel is open)
+async function pingLoop() {
+  try { await api('/api/ping'); } catch (e) {}
+  setTimeout(pingLoop, 2000);
+}
+pingLoop();
+
+renderControls();
+loadHome();
+</script>
+</body>
+</html>

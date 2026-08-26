@@ -1,0 +1,71 @@
+# ── Core ──
+python-dotenv>=1.0.0
+requests>=2.31.0
+websockets>=12.0
+openai>=1.40.0
+
+# ── Speech-to-Text (Faster-Whisper, lokal/offline) ──
+faster-whisper>=1.0.0
+SpeechRecognition>=3.10.0
+sounddevice>=0.4.6
+soundfile>=0.12.1
+
+# ── Wake word detection (Mode 3) ──
+openwakeword>=0.5.1
+onnxruntime>=1.17.0
+
+# ── Catatan ──
+# - Butuh PortAudio terpasang di OS untuk sounddevice (Windows biasanya sudah ada
+#   lewat wheel; Linux: sudo apt install portaudio19-dev sebelum pip install).
+# - Faster-Whisper model (mis. "medium") otomatis ter-download dari Hugging Face
+#   saat pertama kali dipakai (~1.5GB), lalu di-cache lokal.
+# - Kalau mau versi paling baru dari semuanya, jalankan:
+#     pip install --upgrade -r requirements.txt
+
+# ── Audio preprocessing (noise reduction + gain normalization) ──
+# numpy = dipakai langsung (import numpy as np) di luno/audio_preprocess.py
+# buat proses gain normalization sebelum noise reduction - wajib ada
+# walau bukan cuma dependency transitif dari noisereduce/faster-whisper/
+# ultralytics (yang juga bawa numpy sendiri-sendiri). Sebelumnya nggak
+# pernah dideklarasikan eksplisit di file ini - ketemu waktu audit ulang
+# semua `import` langsung di luno/ dibanding isi requirements.txt.
+numpy>=1.24.0
+noisereduce>=3.0.0
+
+# ── VNyan integration (OSC, opsional) ──
+python-osc>=1.9.0
+
+# ── Vision: kamera + YOLO + MiniCPM-V lewat Ollama (opsional, CAMERA_VISION_ENABLED) ──
+# Ollama SENDIRI bukan pip package - install terpisah dari https://ollama.com,
+# lalu `ollama pull minicpm-v` (lihat luno/vision.py buat detail lengkap).
+opencv-python>=4.9.0
+ultralytics>=8.3.0
+
+# ── Tapo pan/tilt IP camera (opsional, CAMERA_PTZ_BACKEND=real - lihat
+#    TAPO_HOST/TAPO_USERNAME/TAPO_PASSWORD di .env dan
+#    luno/tool_manager/builtin/real_camera_ptz.py) ──
+pytapo>=3.3.0
+
+# ── Browser / computer-use (opsional, BROWSER_ENABLED=true - lihat
+#    luno/browser/ dan luno/tool_manager/builtin/real_browser.py) ──
+# Setelah `pip install -r requirements.txt`, jalankan sekali:
+#   playwright install chromium
+playwright>=1.40.0
+# psutil = local system metrics (CPU/RAM/disk) buat "cek server" -
+# lihat luno/browser/monitoring.py. Tanpa ini, monitoring tetap jalan
+# (cek reachability dashboard tetap ada) tapi metrics lokal kosong.
+psutil>=5.9.0
+# Pillow = downscale screenshot sebelum dikirim ke vision provider -
+# opsional, tanpa ini screenshot tetap jalan di resolusi asli (lebih
+# besar, lebih mahal per vision call).
+Pillow>=10.0.0
+
+# ── Fish Audio CLOUD TTS API (opsional, TTS_ENGINE=fish_audio_api - lihat
+#    luno/adapters/fish_audio_real.py) - encode body request ke format
+#    application/msgpack sesuai kontrak resmi Fish Audio API (POST
+#    https://api.fish.audio/v1/tts, verified against fishaudio/
+#    fish-audio-python's own SDK source). Tanpa ini, engine fish_audio_api
+#    otomatis nonaktif (fallback ke Mock TTS saat startup, lihat
+#    _default_fish_audio_client()) - gptsovits/f5tts sama sekali tidak
+#    kena dampak.
+ormsgpack>=1.5.0

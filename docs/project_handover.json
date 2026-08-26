@@ -1,0 +1,788 @@
+{
+  "project": "Luno",
+  "current_sprint": "P0.15 - COMPLETE",
+  "status": "P0.15 added a human-friendly, additive Time condition to the Automation Dashboard: {\"type\": \"time\", \"parameters\": {\"after\": \"HH:MM\", \"before\": \"HH:MM\"}}, routed through the EXISTING AutomationEngine._evaluate_conditions() -> evaluate_condition() pipeline every other condition already uses - engine.py required ZERO changes for this feature (its generic per-condition loop already delegates by type). Supports both normal (after<=before) and overnight/crosses-midnight (after>before) ranges, both boundaries inclusive, verified against every worked example in the brief (18:00-23:30 and 22:00-02:00). No scheduler/timer/polling loop was introduced anywhere - a time condition is a pure, on-demand comparison evaluated once, at real trigger-processing time. TIME_CONDITION_TYPE deliberately kept OUTSIDE CONDITION_TYPES (that frozenset stays pure comparison operators only). Dashboard UX polish: a dedicated \"Time\" condition card (native time inputs, a live \"Active during this period\" indicator), natural-language \"When X / Only between Y / -> Z\" summaries under each automation's name, empty/loading states, and inline validation messages - all within the existing single-file, dependency-free, vanilla-JS dashboard, no frontend framework introduced. Discovered/re-confirmed (not caused by this sprint): the same config/automation_rules.json/config/camera_automation.json real-production-data-drift family P0.14 discovered remains unchanged.",
+  "last_completed_sprint": "P0.15",
+  "last_completed_work": "P0.15 - Human-Friendly Dashboard UX & Time-Based Automation Conditions: luno/automation/models.py (TIME_CONDITION_TYPE constant deliberately kept out of CONDITION_TYPES, additive AutomationCondition.parameters field, _validate_time_condition() reusing the existing _TIME_TRIGGER_RE regex, rule_from_dict() threading parameters through), luno/automation/conditions.py (_parse_hhmm() helper, optional now= parameter on evaluate_condition(), a time-condition branch checked first implementing normal-range and overnight-range comparison logic), luno/automation/__init__.py (re-exports TIME_CONDITION_TYPE), luno/dashboard/static/index.html (dedicated Time condition card with native time inputs and a live active-now indicator, + Add Time Condition button, natural-language automation summary lines, empty/loading states, inline validation messages). engine.py, automation_api.py, and server.py were NOT modified. 52 new tests (tests/test_p0_15_time_conditions.py, sections A-G: time validation, normal/overnight range boundaries parametrized against all seven brief examples, automation behavior with real wall-clock time, persistence round trips, dashboard source-scan, AST-based architecture guards). Full repository sweep (156 files, chunked methodology): ~105 failed (all pre-existing environment/config-drift categories, zero touching luno/automation/ or luno/dashboard/) - see known_baseline_failures.",
+  "architecture_state": "p0-5-4-live-real-camera-proof-of-life",
+  "architecture_version": 97,
+  "last_verified": "2026-08-26",
+  "test_baseline": "P0.15 own suite: 52 passed, 0 failed. P0.11-P0.14/Sprint-72: 307 passed, 0 failed (before and after). Vision/Camera Automation (24 files): 655 passed, 24 failed (pre-existing drift family), 1 skipped. Full 156-file tests/-directory repository sweep (chunked methodology, 3 pre-existing collection-error files excluded same as prior sprints): approximately 105 failed, all pre-existing/documented - see known_baseline_failures.",
+  "known_baseline_failures": [
+    {
+      "test": "test_mic_device_index.py (6 tests)",
+      "cause": "real .env sets MIC_DEVICE_INDEX in this sandbox",
+      "type": "environment-specific"
+    },
+    {
+      "test": "test_production_launcher.py::test_07_health_checks_all_pass_in_default_mock_configuration",
+      "cause": "real OpenRouter/Fish Audio credentials present in this checkout's .env",
+      "type": "environment-specific"
+    },
+    {
+      "test": "test_real_adapters.py (2 tests)",
+      "cause": "speech_recognition/sounddevice missing or broken in this sandbox",
+      "type": "dependency-related"
+    },
+    {
+      "test": "test_state_isolation.py::test_isolate_persistent_state_drains_stragglers_before_monkeypatch_reverts",
+      "cause": "inspect.getsource sandbox flake (deterministic in this sandbox, not a parallel-execution flake)",
+      "type": "environment-specific"
+    },
+    {
+      "test": "test_main_bargein.py",
+      "cause": "uncollectible - faster_whisper module missing in sandbox",
+      "type": "dependency-related"
+    },
+    {
+      "test": "test_root_main_bargein.py",
+      "cause": "uncollectible - legacy_main.py absent from this checkout",
+      "type": "dependency-related"
+    },
+    {
+      "test": "test_streaming_e2e.py::test_D_barge_in_between_llm_and_tts_chunk_never_plays",
+      "cause": "documented parallel-execution (pytest -n 4) timing flake since Sprint 49 - did NOT reproduce during Sprint 50's own full sweep (flakes do not always reproduce; absence this run is not evidence it is fixed)",
+      "type": "timing/scheduling flake (not observed this sprint)"
+    },
+    {
+      "test": "test_llm_tts_streaming_production.py::test_14_cancellation_during_synthesis and test_verification_dashboard.py::test_api_verification_reports_a_successful_verified_action_end_to_end",
+      "cause": "newly observed in one of two Sprint 69 full-suite runs, absent from the other (unchanged checkout, same command) - non-deterministic, order/timing-dependent, full-suite-only flake; both pass cleanly in isolation; neither file touches camera/vision code. Sprint 68 already named test_llm_tts_streaming_production.py as historically absorbing this general class of flakiness and explicitly did not claim its own fix (tests/test_camera_presence.py's time.time() leak) was exhaustive.",
+      "type": "timing/scheduling flake (order-dependent, full-suite-only)"
+    },
+    {
+      "test": "test_state_isolation.py::test_planner_turn_thread_can_genuinely_outlive_console_stop",
+      "cause": "newly observed in Sprint 69.1's full-suite sweep (445.88s run); reconfirmed clean in isolation (1.12s) immediately after; a different specific test within the same file Sprint 69's own baseline already documents as a source of full-suite-only, order/timing-dependent flakiness (test_isolate_persistent_state_drains_stragglers_before_monkeypatch_reverts). Nothing in test_state_isolation.py or planner/console code was touched by Sprint 69.1.",
+      "type": "timing/scheduling flake (order-dependent, full-suite-only)"
+    },
+    {
+      "test": "test_llm_tts_streaming_production.py::test_13_cancellation_before_first_audio",
+      "cause": "observed only in a broader sweep that also included luno/'s own test directories (not the established tests/-only baseline command) - re-run in isolation, passed cleanly (2 passed in 1.90s along with the test_state_isolation.py flake); this file was already flagged in Sprint 69's own notes as flaky under full-suite stress",
+      "type": "timing/scheduling flake (full-suite-only, not reproduced in isolation)"
+    },
+    {
+      "test": "test_sprint69_2_camera_state_machine_hardening.py::test_9_read_timeout_never_synchronously_releases_a_still_running_capture",
+      "cause": "full-suite-only timing sensitivity in this file's real-background-thread timeout simulation (observed on different specific tests within the same file across different full-sweep runs - test_4 during Sprint 70's targeted-suite run, test_9 during the full repository sweep) - always passes cleanly when the file (or the single failing test) is re-run alone; this sprint (70) never modified this file or luno/vision.py",
+      "type": "timing/scheduling flake (full-suite-only, not reproduced in isolation)"
+    },
+    {
+      "test": "tests/test_llm_max_completion_tokens_compatibility.py (7 tests), tests/test_memory_session_summary_api_compatibility.py (5 tests)",
+      "cause": "this checkout's own .env sets MAX_TOKENS_PARAM=max_tokens, overriding the code's own max_completion_tokens default - newly observed during Sprint 71's full regression sweep, unrelated to any Sprint 71 code",
+      "type": "environment-specific"
+    },
+    {
+      "test": "tests/test_sprint63_long_term_memory_recovery.py (2), tests/test_sprint64_memory_corruption_forensics.py (3), tests/test_sprint68_mutation_audit_hardening.py (1)",
+      "cause": "this long-lived checkout has accumulated 41 files in config/backups/ against these tests' own hardcoded pristine-count expectation (e.g. 12) - checkout-state drift from months of real sprint activity, confirmed unrelated to Sprint 71 (0 new backup files created by this sprint's own runs)",
+      "type": "environment-specific"
+    },
+    {
+      "test": "luno/barge_in/tests/test_barge_in.py::test_confirm_mode_interrupt_then_no_resumes, ::test_stress_many_ordinary_utterances_then_one_real_interrupt",
+      "cause": "CPU/GIL-contention flakiness under -n 4 parallel load only - both pass 2/2 when re-run in isolation",
+      "type": "parallel-execution flake"
+    },
+    "test_sprint68_mutation_audit_hardening.py::test_baseline_config_json_count_is_15 - RENAMED to ..._is_16 and updated (not a workaround): Sprint 71 Camera Patrol's own sanctioned new config/camera_patrol_routes.json legitimately moved the real config-file count from 15 to 16.",
+    "test_sprint68_mutation_audit_hardening.py::test_baseline_config_json_count_is_16 - RENAMED to ..._is_17 and updated (not a workaround): Sprint 72 Automation Engine's own sanctioned new config/automation_rules.json legitimately moved the real config-file count from 16 to 17.",
+    "test_sprint65_tool_file_access_audit.py::test_E_no_exec_or_eval_call_sites_exist_in_production_code / ::test_F_zero_shell_equals_true_anywhere_in_production_code - Sprint 72's own new luno/automation/models.py docstring literally named eval()/exec()/shell=True while documenting that they are forbidden; the scanner correctly flagged it; fixed by rewording the docstring (real fix, not a scanner workaround), re-verified passing.",
+    {
+      "test": "tests/test_sprint63_long_term_memory_recovery.py (2), tests/test_sprint64_memory_corruption_forensics.py (3), tests/test_sprint68_mutation_audit_hardening.py (2)",
+      "cause": "as of the P0 Camera Automation sprint's own baseline (2026-08-20), config/backups/ has grown to 43 files (unchanged since Sprint 72's own '43 before, 43 after' snapshot at the time, now stale against these tests' own hardcoded pristine-count expectations) - checkout-state drift from real usage in this persistent user folder, confirmed unrelated to this sprint (0 new backup files created by this sprint's own runs)",
+      "type": "environment-specific"
+    },
+    "P0 Camera Automation sprint added ZERO new config/*.json files (env-var-only allowlist design, CAMERA_AUTOMATION_ENTITIES) - deliberately avoids the config-file-count-literal forward-fix class Sprint 71/72 each required once; test_sprint68_mutation_audit_hardening.py's config-count test re-verified passing at the same count Sprint 72 last set (17), unchanged.",
+    {
+      "test": "test_streaming_e2e.py::test_D_barge_in_between_llm_and_tts_chunk_never_plays",
+      "cause": "reproduced once during P0.5 (Real Camera Integration) sprint's own full-repository sweep; investigated (not assumed pre-existing) - re-run in isolation passes 6/6; this is the SAME test already documented above (see the Sprint 49/50 entries in this array) as a non-deterministic full-suite/parallel-timing flake recurring intermittently across many unrelated sprints; luno/camera_automation/ (this sprint's own code) shares zero imports/code with the TTS/barge-in/LLM streaming subsystem this test exercises",
+      "type": "timing/scheduling flake (full-suite-only, not reproduced in isolation) - historically recurring, not new"
+    },
+    "P0.5 (Real Camera Integration) sprint added ONE new config/*.json file - config/camera_automation.json (per-camera HA entity-role mapping, shipped inert, every role null); test_sprint68_mutation_audit_hardening.py's config-count test forward-fixed 17->18 (same precedent Sprint 71/72/P0 each established for their own sanctioned additions).",
+    {
+      "test": "test_sprint68_mutation_audit_hardening.py::test_baseline_no_real_mutation_audit_dir_exists_before_any_real_write",
+      "cause": "logs/mutation_audit directory already exists from real accumulated usage/prior test runs across many days in this checkout (not created by any P0/P0.5/P0.5.1 code)",
+      "type": "environment-specific (first observed during P0.5.1, dated Aug 11-18 - predates this sprint)"
+    },
+    {
+      "test": "test_sprint68_mutation_audit_hardening.py::test_backup_count_unchanged_by_this_entire_test_file",
+      "cause": "config/backups directory contains 43 real files accumulated over many days of prior work/test runs in this checkout vs. the test's hardcoded expectation of 12",
+      "type": "environment-specific (first observed during P0.5.1, dated Aug 11-18 - predates this sprint)"
+    },
+    {
+      "test": "N/A (environment, not a test failure)",
+      "cause": "pytapo cannot be imported in this sandbox's .venv - ModuleNotFoundError: No module named 'kasa.transports', a version mismatch between the installed kasa package's own internal layout and what pytapo's transport/kasa/kasa.py expects, plus a deeper cryptography.hazmat.bindings._rust.openssl.hashes AttributeError. Pre-existing (luno/bootstrap/adapters.py already silently absorbs this exact failure via its existing broad except Exception, falling back to mocked PTZ) - first surfaced explicitly by P0.5.2's own live probe attempt, not newly caused by it. Not fixed (upgrading kasa/cryptography is out of scope).",
+      "type": "environment/dependency-specific (first observed during P0.5.2)"
+    },
+    {
+      "test": "N/A (environment, not a test failure)",
+      "cause": "This sandbox has no network route to TAPO_HOST (a private LAN address - 'Network is unreachable' on ports 443/554/80) or to the configured Home Assistant hostname ('Temporary failure in name resolution'), and lacks the ultralytics package luno/vision.py's real YOLO path requires. Directly re-probed and confirmed during P0.5.4 (not merely assumed from prior sprints). This structurally prevents ANY live camera/Vision hardware verification from this environment - the reason all 6 of P0.5.4's own live tests are honestly reported NOT PERFORMED rather than fabricated as PASS.",
+      "type": "environment/network-specific (confirmed during P0.5.4, consistent with the same class of blocker documented since P0.5.1)"
+    },
+    {
+      "test": "N/A (architectural constraint, not a test failure)",
+      "cause": "Agent (Claude) code execution always occurs in an isolated cloud development sandbox, regardless of which real folder (e.g. E:\\Luno Evo) is mounted for file read/write access. Confirmed definitively during P0.5.4-LIVE via direct hostname/kernel inspection and a fresh TCP probe to TAPO_HOST (still Network is unreachable). This means the agent can never perform a live camera/network hardware test itself, on any future sprint - only a human running a delivered script on their own real machine can. luno_live_camera_event_observer.py was built specifically to let a human do exactly that.",
+      "type": "permanent architectural constraint (confirmed during P0.5.4-LIVE)"
+    },
+    "P0.5.4-FIX: observer script's own config-loading bug (bare LauncherConfig() vs LauncherConfig.load()) is now fixed - no longer a live baseline failure, recorded here for history. The sandbox's own permanent inability to reach TAPO_HOST/RTSP (agent code execution always occurs in an isolated cloud sandbox) remains unchanged and still applies to every future sprint.",
+    {
+      "test": "tests/test_p0_8_9_wled_off_debounce.py (7), tests/test_p0_6_camera_automation_rules.py (3), tests/test_p0_6_1_live_log_verification.py (4), tests/test_p0_6_2_camera_ha_action.py (2), tests/test_p0_6_2_fix_vision_runtime_parity.py (1), tests/test_p0_6_3_unified_vision_camera_automation.py (3), tests/test_p0_7_vision_context.py (5), tests/test_p0_8_0_camera_action_safety.py (11), tests/test_p0_8_1_live_verification.py (7), tests/test_p0_8_2_human_cleared_light_off.py (12), tests/test_p0_10_occupancy_context.py (6)",
+      "cause": "DISCOVERED DURING P0.14 (not caused by P0.14): the real config/automation_rules.json now contains only ONE rule - a single real, user-created 'Back From Work' rule (id automation-4051-1787679811273, built through the live P0.13 dashboard, sequence: turn_on light.main_light -> delay -> turn_on switch.tasmota_tasmota2 -> delay -> turn_on light.wled -> delay -> turn_on light.komputer). Every P0.6-P0.10 diagnostic/safety rule these tests expect on disk (camera_human_detected_log, camera_test_automation_safety_action/_off, occupancy_test_log, occupancy_long_presence_test, etc.) is genuinely gone. Root-caused via config/backups/'s own 91-file history showing progressive file-size shrinkage (4920->...->971->2->1464 bytes) immediately followed by the new rule's creation timestamp - confirmed deliberate, sequential, real user deletions through the live dashboard, not a P0.14 bug (P0.14 touched zero persistence code and its own smoke tests used only temp files). Restorable from config/backups/ if the user wants the old diagnostic rules back. NOT fixed/silenced by P0.14 - these test files exist specifically as regression guards for those production rules' presence, and were deliberately left untouched rather than papered over.",
+      "type": "environment/config-drift (real, deliberate user action via the live P0.13 dashboard - first observed during P0.14)"
+    }
+  ],
+  "completed_sprints": [
+    {
+      "n": 36,
+      "title": "Voice Output Mode (ALL/SHORT)"
+    },
+    {
+      "n": 37,
+      "title": "Semantic Voice Selection"
+    },
+    {
+      "n": 38,
+      "title": "Conversation Reference Resolution"
+    },
+    {
+      "n": 39,
+      "title": "Conversation Intelligence & Context Quality"
+    },
+    {
+      "n": 40,
+      "title": "Memory Confidence & Conflict Resolution"
+    },
+    {
+      "n": 41,
+      "title": "Temporal Memory & Timeline Awareness"
+    },
+    {
+      "n": 42,
+      "title": "Cross-System Integration Audit"
+    },
+    {
+      "n": 43,
+      "title": "Semantic Context Bridging & Memory Precision"
+    },
+    {
+      "n": 44,
+      "title": "Entity & Concept Continuity"
+    },
+    {
+      "n": 45,
+      "title": "Entity Identity & Semantic Alias Continuity"
+    },
+    {
+      "n": 46,
+      "title": "Contextual Reference Robustness"
+    },
+    {
+      "n": 47,
+      "title": "Semantic Entity Memory & Reference Graph"
+    },
+    {
+      "n": 48,
+      "title": "Bounded Entity Provenance & Ambiguity Resolution"
+    },
+    {
+      "n": 49,
+      "title": "Entity Provenance Disambiguation & Topic Lineage"
+    },
+    {
+      "n": 50,
+      "title": "Runtime Observability, Test Logging & Real-World Data Capture"
+    },
+    {
+      "n": 55,
+      "title": "Full Verification & System Stabilization (Stability Gate)"
+    },
+    {
+      "n": 56,
+      "title": "Home Assistant + Query Intelligence"
+    },
+    {
+      "n": 58,
+      "title": "Home Assistant Multi-Entity & Group Commands"
+    },
+    {
+      "n": 59,
+      "title": "Single-Room Home Assistant Group Control"
+    },
+    {
+      "n": 60,
+      "title": "Structured Room/Area Schema Foundation"
+    },
+    {
+      "n": 61,
+      "title": "Generalized Area-Aware Home Assistant Group Command"
+    },
+    {
+      "n": 62,
+      "title": "Multi-Domain Area Group Control"
+    },
+    {
+      "n": 63,
+      "title": "Long-Term Memory Persistence Recovery & Integrity Investigation (diagnosis only, STOP CONDITION - no fix applied)"
+    },
+    {
+      "n": 64,
+      "title": "Long-Term Memory Corruption ORIGIN Forensics (forensics only, STATUS UNKNOWN + confirmed exclusion of luno.memory's own code)"
+    },
+    {
+      "n": 65,
+      "title": "Luno Tool & File Access Audit (audit only, no self-modification path found; 2 LOW/INFO findings)"
+    },
+    {
+      "n": 68,
+      "title": "Mutation Audit Trail Verification & Hardening (verified Sprint 67's claims against the checkout; path canonicalization fix, pending/completed two-phase append, read-only replay helper; root-caused an unrelated full-suite-only test flake to tests/test_camera_presence.py's un-restored time.time() patch and fixed it)"
+    },
+    {
+      "n": 69,
+      "title": "Camera Device / OpenCV Stability Fix (root-caused the reported camera error to cv2.VideoCapture's CAP_ANY auto-probe reaching CAP_FFMPEG/CAP_OBSENSOR for a local device index with no explicit backend; added explicit platform-based backend candidate selection, a bounded-open helper shared with the startup health check, a CameraState machine, and a reopen cooldown to stop hammering a known-broken camera on every poll tick; new read-only camera_diagnostic.py)"
+    },
+    {
+      "n": "69.1",
+      "title": "Camera Runtime/Dashboard Disconnect Forensics & Fix (proved single authoritative camera call site and live dashboard telemetry via repo-wide forensic evidence rather than assumption; found/fixed a pre-existing credential-leak bug in error/reason strings; fixed a one-cycle status reporting lag and a missing first-connect CameraReconnected event; added structured diagnostic logging; documented the Tapo CAMERA_URL auto-derivation as the leading, unproven-from-sandbox explanation for continued FFMPEG use, per the brief's own STOP CONDITION)"
+    },
+    {
+      "n": "69-tapo-c212-auth",
+      "title": "Tapo C212 Authentication & Connection Recovery (forensic audit + evidence-based error classification/security hardening for the pytapo-based camera_ptz TOOL, distinct from luno/vision.py's own OpenCV capture path; proved the literal string 'disconnect' never appears in real_camera_ptz.py/camera_ptz.py/bootstrap adapters.py; added classify_tapo_exception() using only pytapo-source-confirmed markers, backward compatible; added credential redaction; preserved existing bootstrap fallback architecture unchanged; documented live verification as not possible)"
+    },
+    {
+      "n": "70-tapo-c212-live-recovery",
+      "title": "Tapo C212 Live Authentication & Auto-Recovery (added a bounded, in-memory PTZConnectionState machine and a single-retry auto-recovery path to real_camera_ptz.py, reusing the existing single-client architecture; client_factory defaults to None for full backward compatibility; bounded by construction via a loop-free _invoke() method, proven via AST guard; shipped tapo_ptz_diagnostic.py for the user to close the live-verification gap on their real machine; deliberately did not wire connection state into the dashboard, no safe shared abstraction exists)"
+    },
+    {
+      "number": "71-dashboard-startup-access-recovery",
+      "title": "Dashboard Startup & Access Recovery"
+    },
+    {
+      "number": "71-camera-patrol",
+      "title": "Camera Patrol"
+    },
+    {
+      "number": "72-automation-engine-dasar",
+      "title": "Automation Engine Dasar"
+    },
+    {
+      "number": "p0-5-1-real-tapo-c212-entity-discovery",
+      "title": "Real Tapo C212 Entity Discovery"
+    },
+    {
+      "number": "p0-5-2-tapo-c212-event-source-audit",
+      "title": "Tapo C212 Event Source Audit"
+    },
+    {
+      "number": "p0-5-3-vision-camera-automation-bridge",
+      "title": "Vision Event to Camera Automation Bridge"
+    },
+    {
+      "number": "p0-5-4-live-tapo-c212-camera-event-verification",
+      "title": "Live Tapo C212 Camera Event Verification"
+    },
+    {
+      "number": "p0-5-4-live-real-camera-proof-of-life",
+      "title": "Real Camera Proof-of-Life"
+    },
+    "P0.5.4-FIX",
+    "P0.6",
+    "P0.6.1",
+    "P0.6.2",
+    "P0.6.2-FIX",
+    "P0.6.3",
+    "P0.7",
+    "P0.8.0",
+    "P0.8.1",
+    "P0.8.2",
+    "P0.8.6",
+    "P0.8.7",
+    "P0.8.8",
+    "P0.8.9",
+    "P0.9",
+    "P0.10",
+    "P0.11",
+    "P0.12",
+    "P0.13",
+    "P0.14",
+    "P0.15"
+  ],
+  "completed_fixes": [
+    {
+      "title": "Dashboard Turn-State Recovery fix",
+      "after_sprint": 50,
+      "before_sprint": 51,
+      "type": "fix-first, not a numbered intelligence sprint"
+    },
+    {
+      "title": "Dashboard Turn-State Recovery fix, Part 2 (TTS-path)",
+      "after_sprint": 50,
+      "before_sprint": 51,
+      "type": "fix-first, not a numbered intelligence sprint",
+      "supersedes_none": true,
+      "extends": "Dashboard Turn-State Recovery fix (completed_fixes[0]) - a different, TTS-side gap that fix did not cover",
+      "verified_live_this_session": false
+    },
+    {
+      "title": "Sprint 52 (user-numbered) - Robust Home Assistant Command & Entity Resolution",
+      "after_sprint": 50,
+      "before_sprint": 51,
+      "type": "fix/feature-first, not a numbered intelligence sprint (user's own 'Sprint 52' name - filed as ARCHITECTURE_GUARD.md section 53, see that section's own numbering note)",
+      "supersedes_none": true,
+      "verified_live_this_session": false,
+      "verified_unit_integration_this_session": true,
+      "verification_detail": "68 passed, 0 failed via real pytest run in this session (29 new tests in tests/test_sprint52_ha_entity_resolution.py + all 39 pre-existing tests in luno/tool_manager/tests/test_real_home_assistant_verification.py, re-run unmodified against the Sprint-52-modified handler). NOT run against a real Home Assistant server. Full ~2900-test repository regression sweep NOT run this session (only this feature's real dependency chain was staged, not the full checkout)."
+    },
+    {
+      "title": "Sprint 53 (user-numbered) - Memory Session Summary API Compatibility Fix",
+      "after_sprint": 50,
+      "before_sprint": 51,
+      "type": "fix-first, not a numbered intelligence sprint (user's own 'Sprint 53' name - filed as ARCHITECTURE_GUARD.md section 54)",
+      "supersedes_none": true,
+      "verified_live_this_session": false,
+      "verified_unit_integration_this_session": true,
+      "verification_detail": "93 passed, 3 skipped, 0 failed via real pytest run in this session (13 new tests in tests/test_memory_session_summary_api_compatibility.py + 111 pre-existing tests across 4 unmodified files: luno/adapters/tests/test_openrouter_adapter.py [31/31], luno/adapters/tests/test_llm_manager.py [33], tests/test_memory_regression.py + tests/test_memory_persistence_hardening.py [16 passed, 3 pre-existing environment-specific skips]). NOT run against a real, live LLM provider (no OPENROUTER_API_KEY / network access in this sandbox). Full ~2900-test repository regression sweep NOT run this session (only this feature's real dependency chain was staged, not the full checkout). Known limitation documented, not fixed at the time: luno/adapters/llm/base.py had the textually identical hardcoded max_tokens pattern in the separate llm_manager stack - RESOLVED by Sprint 54 below. CORRECTION (Sprint 54): the fix in this entry targeted luno/adapters/openrouter.py's OpenRouterAdapter, which was later discovered to be orphaned in production (luno/bootstrap/adapters.py actually constructs LLMManagerAdapter, not this class) - this fix remains correct and harmless for the class it touched, but was NOT what actually fixed the originally-reported production error; see the Sprint 54 entry below."
+    },
+    {
+      "title": "Sprint 54 (user-numbered) - LLM Stack API Compatibility & Max Completion Tokens Hardening",
+      "after_sprint": 50,
+      "before_sprint": 51,
+      "type": "fix-first, not a numbered intelligence sprint (user's own 'Sprint 54' name - filed as ARCHITECTURE_GUARD.md section 55; explicit takeover task instructed not to assume Sprint 53's claims were correct)",
+      "supersedes_none": true,
+      "extends": "Sprint 53 (completed_fixes entry above) - fixes the SAME class of bug on the actual production LLM stack (luno/adapters/llm/base.py, via LLMManagerAdapter) rather than the orphaned luno/adapters/openrouter.py class Sprint 53 fixed",
+      "verified_live_this_session": false,
+      "verified_unit_integration_this_session": true,
+      "verification_detail": "165 passed, 3 skipped, 0 failed via real pytest run in this session (24 new tests in tests/test_llm_max_completion_tokens_compatibility.py + 141 pre-existing tests across 5 unmodified files: luno/adapters/llm/tests/test_providers.py, luno/adapters/tests/test_openrouter_adapter.py, luno/adapters/tests/test_llm_manager.py, tests/test_memory_session_summary_api_compatibility.py, tests/test_memory_regression.py + tests/test_memory_persistence_hardening.py [3 pre-existing environment-specific skips, same as Sprint 53]). NOT run against a real, live LLM provider (no OPENROUTER_API_KEY / network access in this sandbox). Full ~2900-test repository regression sweep NOT run this session. Performance measured: mean ~0.0007ms/call, max ~0.0039ms/call for the changed payload-construction step, well under the 5ms target. Persistent state (config/*.json) verified unchanged."
+    },
+    {
+      "title": "Sprint 55 (user-numbered) - Full Verification & System Stabilization",
+      "after_sprint": 54,
+      "before_sprint": 56,
+      "type": "stability-gate / verification sprint, not a feature sprint (filed as ARCHITECTURE_GUARD.md section 56)",
+      "supersedes_none": true,
+      "extends": "Verifies Sprint 52/53/54's fixes remain intact and hardens test reliability; no production behavior intentionally changed",
+      "verified_live_this_session": false,
+      "verified_unit_integration_this_session": true,
+      "verification_detail": "3880 collected, 3866 passed, 10 failed, 4 skipped via a real full-repository pytest sweep (first of this scale in this project's sprint lineage). Every failure re-run in isolation and root-caused, zero genuine new regressions. One real test-reliability fix applied (tests/test_dashboard_turn_state_recovery.py::test_05, test file only). Real end-to-end capture->approve->replay->diff cycle verified against a live RuntimeDemoConsole. NOT run against a real, live LLM/HA provider (network egress blocked in this sandbox - confirmed via a real 403 Forbidden proxy rejection, not merely assumed). Persistent state (all 15 config/*.json files) verified byte-identical to the real device before/after. Performance measured on all touched paths: 0.0018-0.048ms/op, far under the 5ms target."
+    },
+    {
+      "title": "Sprint 56 (user-numbered) - Home Assistant + Query Intelligence",
+      "after_sprint": 55,
+      "before_sprint": 57,
+      "type": "HA safety re-verification + one query-intelligence feature (filed as ARCHITECTURE_GUARD.md section 57)",
+      "supersedes_none": true,
+      "extends": "Sprint 52's HA entity resolver (re-verified, not modified) and Sprint 49's entity differentiator mechanism (extended to a second call site, select_topic_candidates())",
+      "verified_live_this_session": false,
+      "verified_unit_integration_this_session": true,
+      "verification_detail": "23 new tests (tests/test_sprint56_query_entity_differentiator.py: 17, tests/test_sprint56_ha_safety_matrix.py: 6), 0 failed. Combined with Sprint 52's own suite (68) + the full memory/topic/entity-continuity regression surface (662, 16 files): 753 passed, 3 skipped, 0 failed. Full repository sweep re-run (3880 collected, same fixed set Sprint 55 established): 3865 passed, 11 failed, 4 skipped - all 11 re-run in isolation and classified, zero genuine new regressions. NOT run against a real, live Home Assistant server (network egress blocked in this sandbox, same limitation as Sprint 55's LLM verification). Phase 13 (contextual HA references) investigated and explicitly DEFERRED to Sprint 57 with a documented evidence matrix, not implemented - current behavior confirmed safe (no device ever activated from an ellipsis reference) but unhelpful. Performance measured: resolver fuzzy tier 0.175ms/call, differentiator-enabled topic candidate selection 0.007ms/call, both far under the 5ms target. Persistent state (config/*.json) verified byte-identical before/after."
+    },
+    {
+      "title": "Sprint 71 (user-numbered) - Dashboard Startup & Access Recovery",
+      "after_sprint": 70,
+      "before_sprint": null,
+      "type": "fix-first, not a numbered intelligence sprint (user's own 'Sprint 71' name - filed as ARCHITECTURE_GUARD.md section 74)",
+      "supersedes_none": true,
+      "verified_live_this_session": true,
+      "verified_unit_integration_this_session": true,
+      "verification_detail": "15/15 new tests passed via real pytest run in this session, plus a full subprocess-level E2E reproduction of the original crash through the real `python main.py` entry point (both the before-fix crash and the after-fix graceful degradation were directly observed)."
+    },
+    {
+      "sprint": "71-camera-patrol",
+      "title": "Camera Patrol",
+      "summary": "Bounded, deterministic, stoppable PTZ preset patrol built entirely on the existing PTZ dispatch path; manual PTZ override enforced via a new optional pre-dispatch hook; loop routes require an explicit safety bound; zero new PTZ implementation; zero credential/runtime-state persistence."
+    },
+    {
+      "sprint": "72-automation-engine-dasar",
+      "title": "Automation Engine Dasar",
+      "summary": "Deterministic TRIGGER->CONDITION->ACTION->VERIFY->COOLDOWN pipeline built entirely on the existing Event Bus/Scheduler/ToolManager; typed allowlisted domain model with no arbitrary code execution; Manual>Automation>Patrol camera ownership; no-partial-execution policy; bounded cooldown and frequency-based loop protection; metadata-only Event Bus events; definition/runtime-state persistence separation."
+    }
+  ],
+  "completed_work": [
+    "Sprint 50 Phase 0: reconnaissance of the existing Event Bus/dashboard/MemoryTurnTrace infrastructure via targeted grep, not assumption - found it far more mature than a from-scratch build would assume (a real Event Bus, a full HTTP 'Brain Debugger' dashboard from Sprint 32, EventRingBuffer/StatsAggregator/VoiceLatencyRecorder/LogCapture, MemoryTurnTrace). Confirmed the genuine gaps: nothing persisted the event stream to disk, the memory/reference/topic pipeline never published its own event, no real-world test-capture/replay mechanism existed at all.",
+    "Sprint 50 Phase 1: designed a small, closed event model (5 new event types) rather than the brief's own suggested 15-category list, each backed by a real call site reading data _handle_utterance() already computes. Live-verified via a real RuntimeDemoConsole run before writing any test: the Sprint 49 Aquascape A/B ambiguity gate now publishes ambiguity_refusal=True as a real, timestamped event.",
+    "Sprint 50 Phase 2-4: built EventLogWriter (luno/dashboard/event_log_writer.py) - JSONL + human-readable text persistence, date-rotated, redacted (secret-shaped keys), bounded (500-char field cap), every file operation independently try/except-wrapped so a write failure can never break the Event Bus. Off by default on RuntimeDemoConsole, unconditional on DashboardServer.",
+    "Sprint 50 Phase 5-6: added two read-only dashboard collectors (collect_observability_summary/collect_session_trace) + GET routes - confirmed via real HTTP round-trip that the pre-existing generic Event Bus page ALREADY shows all 5 new event types with zero dashboard code change.",
+    "Sprint 50 Phase 7-8: built luno/test_capture.py - mark_test_case() reads two already-existing, already-bounded pieces of state (console.conversation_log, MemoryTurnTrace) and writes directly to the final case JSON shape at tests/real_world/candidate/. /mark_test added to ProductionConsole; console.mark_test() added to RuntimeDemoConsole.",
+    "Sprint 50 Phase 9-10: built luno/replay.py - replay_case() spins a fresh, deterministic RuntimeDemoConsole (never a real LLM, verified via a same-case-twice determinism test) and reports PASS/FAIL/REVIEW with a field-level diff (format_diff()).",
+    "Sprint 50 Phase 11-12: enforced a strict candidate/reviewed/approved/rejected status enum (set_case_status()); replay_all() defaults to approved-only, verified directly that a candidate-status case is never swept into the default regression sweep. Built the tests/real_world/{candidate,reviewed,approved,rejected}/ directory skeleton.",
+    "Sprint 50 Phase 13-14: privacy tests (secret redaction, oversized-field bounding, malformed-payload/write-failure isolation), performance measured directly (EventLogWriter._on_event mean 0.122ms; _redact() mean 0.004ms, both far under the 5ms target).",
+    "Sprint 50 Phase 15: 3 new test files, 47 tests total, all passing - tests/test_runtime_observability.py (22), tests/test_real_world_capture.py (13), tests/test_replay_engine.py (12), including a full E2E capture-approve-replay loop through a real console.",
+    "Sprint 50 Phase 16: targeted regression 775 passed, 0 failed. Full repository sweep in 8 chunks (100 files, up from 97) - 2947 collected, 2937 passed, 10 failed, 2 uncollectible, every failure identical to the standing baseline, zero new regressions. Found and fixed a real, minor side effect DURING the sweep itself: tests/test_memory_voice_observability.py's own pre-existing E2E test hadn't been updated to pass observability_log_dir, so it created a real logs/ directory in the repository via the new (by-design) unconditional DashboardServer wiring - fixed immediately by pointing that test at a temp directory.",
+    "Sprint 50 Phase 17: config/*.json (15 files) SHA256-hashed before/after - full 8-chunk sweep byte-identical, plus 2 additional independent isolated runs (this sprint's own 3 new files alone; those 3 plus the full Sprint 43-49 core suite) both byte-identical too.",
+    "Sprint 50 Phase 18: documentation (ARCHITECTURE_GUARD.md #50, regression_baseline.md Sprint 50 section, docs/change_impact/runtime_observability.md, full project_handover.md/.json rewrite) and a cold-start takeover simulation.",
+    "Dashboard Turn-State Recovery fix (fix-first, after Sprint 50, before Sprint 51): fixed a real production bug where the Dashboard could get stuck permanently at Thinking after a request/connection failure, blocking all further commands. Root-caused via a live RuntimeDemoConsole reproduction to PlannerBridgeModule._handle_utterance() running on an unsupervised daemon thread with no outer try/except - an exception escaping before NeedLLMResponse published (proven via a ConnectionAbortedError injected into self.planner.create_plan(), the exact WinError-10053 shape from the report) left SessionManagerModule stuck at THINKING forever (no timeout exists for that state). Fixed with one new wrapper method, _run_utterance_turn_safely(), publishing the SAME llm_error event a real OpenRouter failure already publishes on any escaped exception - reusing EXISTING session_manager/barge_in routes and their already-idempotent handlers, zero new event type/route/state machine. Separately classified WinError 10038 as an expected Dashboard-client-disconnect shape in luno/dashboard/server.py. Investigated luno/bootstrap/shutdown.py and left it UNCHANGED - proven, via a live mid-turn-shutdown test, to already handle this correctly. New test file tests/test_dashboard_turn_state_recovery.py (13 tests, all E2E through the real runtime path). Full 8-chunk regression sweep: 2960 collected/2949 passed/11 failed - 10 identical to standing baseline, 1 new-looking failure confirmed a new instance of the EXISTING inspect.getsource sandbox flake (re-ran clean in isolation). Zero new regressions, config/*.json byte-identical across full sweep plus 2 isolated runs."
+  ],
+  "active_work": [],
+  "known_limitations": [
+    "Bare compound-noun \"-nya\" declaratives (e.g. \"LED strip-nya 430.\") replace rather than merge the active topic - deliberately unfixed to avoid false positives on Indonesian discourse connectives (soalnya/katanya/sepertinya/akhirnya/biasanya). Neither Sprint 47's is_demonstrative_anchored_followup(), Sprint 48's own gate, nor Sprint 49's own differentiator signal cover this - none apply to a bare declarative with no demonstrative and no capital-letter label.",
+    "Product-to-category world knowledge is never fabricated (e.g. \"INMP441\" is never automatically understood to be a \"mic\", \"ESP32-S3\" is never automatically understood to be a \"board\", unless that word was actually used) - deliberate boundary, not a defect. Re-confirmed via Sprint 47's own Scenario 1.",
+    "Merely-contextual associations (e.g. \"gaming\" near a GPU discussion) are never treated as aliases - correct per the no-giant-synonym-dictionary constraint.",
+    "10 pre-existing environment/infrastructure/dependency test failures unrelated to any Sprint 43-50 code (see test_baseline.known_failures / known_baseline_failures).",
+    "\"Yang lebih bagus?\"/\"Yang paling murah?\" in a genuinely single-topic conversation are not resolved - a fix was reproduced-correct then reverted (Sprint 46) after it broke test_76_e2e_multi_topic_ambiguity_gpu_vs_pompa. See ARCHITECTURE_GUARD.md #46 'Rejected #2'.",
+    "A historical query (\"Yang sebelumnya gimana?\") after a still-\"planned\" statement correctly refuses to inject the wrong/current topic, but does not resolve to the actual planned entry either - select_temporal_fallback_candidate()'s eligibility table still excludes \"planned\" status from the \"historical\" tier. See ARCHITECTURE_GUARD.md #46 Fix #2.",
+    "An exact-50%-coverage same-entity topic-history lineage is not recognized as lineage (falls back to the safer ambiguous-refuse path) - a fix (coverage >= 0.5) was reproduced-correct then reverted (Sprint 46) after it broke test_39_tied_normalized_overlap_across_history_is_not_relevant. See ARCHITECTURE_GUARD.md #46 'Rejected #1'.",
+    "RESOLVED in Sprint 48 (was open in Sprint 47): cross-topic contamination for a curated-vocabulary word grounded in NEITHER of exactly 2 live topics ('Board itu gimana?' after ESP32 then Aquascape). Fixed via a demonstrative-anchoring gate in is_active_topic_relevant_to_query() - Sprint 46's own test_27_e2e_no_contamination_reverse_direction (identical formal shape, opposite correct answer, NOT demonstrative-anchored) remains correctly unchanged. See ARCHITECTURE_GUARD.md #48.",
+    "RESOLVED in Sprint 49 (was open in Sprint 47/48): two distinctly-named entities sharing high generic-vocabulary overlap ('Aquascape A'/'Aquascape B', both using 'pompa') were conflated by the existing coverage > 0.5 lineage-skip heuristic and resolved to whichever was more recent with no ambiguity signal. Fixed via _extract_entity_differentiator(), a narrow, general-purpose (not domain-specific) signal reading the RAW, case-preserved source_sentence field for a standalone uppercase letter - avoids Sprint 48's own rejected token-based approach's asymmetry (shared _STOPWORDS drops lowercase 'a' but not 'b') by never going through analyze_query()'s tokenizer at all. Verified to generalize beyond Aquascape (ESP32 A/ESP32 B). See ARCHITECTURE_GUARD.md #49 and docs/change_impact/entity_provenance_disambiguation.md.",
+    "STILL OPEN (Sprint 49, deliberately NOT addressed by Sprint 50 - observability-only sprint). Query-side differentiator matching is not implemented. _extract_entity_differentiator() is only ever applied to STORED source_sentence entries, never to the live query text - so 'Pompa A gimana?' still refuses rather than resolving directly to Aquascape A. Lowercase differentiators are also never recognized (by design, to avoid the shared stopword collision). See tests/test_entity_provenance_disambiguation.py::test_33 and test_34. This is the top Sprint 51 candidate.",
+    "(New, Sprint 50 - observability layer, not intelligence.) No dashboard HTML panel was added for the two new /api/observability/* routes - the pre-existing generic Event Bus page already shows the 5 new event types with zero code change, judged sufficient this sprint. collect_observability_summary()/collect_session_trace() never surface raw user/assistant text, by design (preserving MemoryTurnTrace's own privacy boundary). luno.replay.replay_case()'s own canned reply is a fixed, generic string, not the real assistant reply from the original captured conversation - intentional anti-leak discipline. Two harmless, redaction-verified log files created by a since-fixed test gap remain in this checkout's own logs/ directory - undeletable from this sandbox (mounted workspace root does not permit shell-level deletion), not config/*.json state. See ARCHITECTURE_GUARD.md #50 and docs/change_impact/runtime_observability.md.",
+    "(New, Dashboard Turn-State Recovery fix.) _run_utterance_turn_safely() only guards _handle_utterance() itself - a bug inside one of that method's own already-guarded internal try/except blocks stays contained by that block, not this new outer one (by design, not a gap). The reused llm_error event's model field is None and retryable is always False for this specific recovery path (honest placeholders - the turn never reached the LLM). _is_expected_client_disconnect()'s WinError-10038 check is intentionally narrow (exact errno/winerror match) - a different, not-yet-observed 'already disconnected' Windows errno would still be logged (safely) rather than misclassified. See docs/change_impact/dashboard_turn_state_recovery.md.",
+    {
+      "id": "dashboard_turn_state_recovery_ttspath_1",
+      "text": [
+        "This Part 2 fix's own new FishAudioAdapter except-Exception clauses only guard the outer orchestration loop of each _play*() method (queue/token-check/publish code) - an exception raised INSIDE self.client.play() itself continues to be handled by the pre-existing, narrower per-chunk except Exception (bounded retry, then skip - unchanged by this fix). This is by design, not a gap: that inner path was already correct (it already publishes SpeechPlaybackCancelled on total failure) - see docs/change_impact/dashboard_turn_state_recovery_ttspath.md."
+      ]
+    },
+    {
+      "id": "dashboard_turn_state_recovery_ttspath_2",
+      "text": "Not yet live-verified: this session could not execute the project's Python runtime at all (no network for dependency install in the sandboxed device shell, no bridge to the real Windows .venv). The new tests were written against the actual source and syntax-checked, but the next agent/session MUST run them for real before this fix is considered proven, not just code-reviewed."
+    },
+    {
+      "id": "sprint52_mock_handler_not_extended",
+      "description": "MockHomeAssistantHandler (luno/tool_manager/builtin/home_assistant.py) was deliberately left unmodified by Sprint 52 - it never consulted luno.devices at all, so there was no resolver to extend there; testability without live HA is covered via RealHomeAssistantHandler + a FakeHAClient test double instead (same convention the pre-existing Reliability Sprint tests already use)."
+    },
+    {
+      "id": "sprint52_no_natural_ambiguous_pair",
+      "description": "This checkout's real device registry (config/lights.config.json / switches.config.json / scripts.config.json - 6 devices total) has no two devices similar enough to naturally tie from a typo, so the new ambiguity safety gate could not be exercised with a naturally-colliding real phrase - exercised instead via a direct gate-logic unit test and an env-var-widened end-to-end test, both using real device labels. See docs/change_impact/sprint52_ha_entity_resolution.md."
+    },
+    {
+      "id": "sprint52_not_live_verified",
+      "description": "Sprint 52 (Robust HA Command & Entity Resolution) was unit+integration tested for real in this session (68 passed via pytest against a minimal real dependency chain) but NOT verified against a real Home Assistant server, and NOT run through the full repository regression sweep - see docs/change_impact/sprint52_ha_entity_resolution.md's 'What was and wasn't executed' section."
+    },
+    {
+      "id": "sprint53_llm_base_identical_latent_bug",
+      "status": "RESOLVED by Sprint 54",
+      "description": "luno/adapters/llm/base.py (OpenAICompatibleClient._payload(), part of the SEPARATE luno.adapters.llm_manager stack that powers normal conversational chat) had the textually identical hardcoded body[\"max_tokens\"] = tokens pattern Sprint 53 fixed in luno/adapters/openrouter.py. Deliberately NOT fixed by Sprint 53, per its own explicit 'document as a finding for a separate sprint' instruction. RESOLVED by Sprint 54 (see completed_fixes entry above and sprint54_llm_base_fixed below) - kept here unedited for the append-only historical record."
+    },
+    {
+      "id": "sprint53_not_live_verified",
+      "description": "Sprint 53 (Memory Session Summary API Compatibility Fix) was unit+integration tested for real in this session (13 new + 111 pre-existing = 93 passed, 3 skipped via pytest against a minimal real dependency chain) but NOT verified against a real, live LLM provider, and NOT run through the full repository regression sweep - see docs/change_impact/memory_session_summary_api_compatibility.md's 'Live verification' and 'Tests' sections. CORRECTION (Sprint 54): Sprint 53's own fix target (luno/adapters/openrouter.py) is orphaned in production - live verification of the REAL production path is covered by sprint54_not_live_verified below instead."
+    },
+    {
+      "id": "sprint54_llm_base_fixed",
+      "description": "luno/adapters/llm/base.py's OpenAICompatibleClient._payload() now routes the completion-length JSON key through config.MAX_TOKENS_PARAM, same as Sprint 53's fix to luno/adapters/openrouter.py. This is the base request builder shared by all three OpenAICompatibleClient subclasses (OpenRouterProvider, OpenAIProvider, LocalProvider) via both chat() and stream_chat() - confirmed via code inspection that none of the three override _payload()/chat()/stream_chat(). Anthropic/Gemini providers do not subclass OpenAICompatibleClient and are unaffected (different, provider-correct wire formats - Anthropic's own \"max_tokens\" field is required and correct, not this same incompatibility)."
+    },
+    {
+      "id": "sprint54_production_call_chain_correction",
+      "description": "IMPORTANT: luno/bootstrap/adapters.py line 137 constructs LLMManagerAdapter() (not luno.adapters.openrouter.OpenRouterAdapter) under the legacy 'openrouter_adapter' key - that key name does not indicate the class. luno.adapters.openrouter.OpenRouterAdapter (Sprint 53's own fix target) is orphaned in production, kept alive only by its own test file luno/adapters/tests/test_openrouter_adapter.py. The REAL production call chain for Session Summary is summarize_and_archive_session() -> LLMManagerAdapter.client (_LegacyClientShim) -> chat_once() -> default LLM_PROVIDER='openrouter' -> luno.adapters.llm.openrouter_provider.OpenRouterProvider -> _payload() in luno/adapters/llm/base.py - i.e. Sprint 54's fix, not Sprint 53's, is what actually fixes the originally-reported production error. See docs/change_impact/llm_max_completion_tokens_compatibility.md's 'IMPORTANT CORRECTION TO SPRINT 53'S DOCUMENTED ROOT CAUSE' section."
+    },
+    {
+      "id": "sprint54_not_live_verified",
+      "description": "Sprint 54 (LLM Stack API Compatibility & Max Completion Tokens Hardening) was unit+integration tested for real in this session (24 new + 141 pre-existing = 165 passed, 3 skipped via pytest against a minimal real dependency chain) but NOT verified against a real, live LLM provider, and NOT run through the full repository regression sweep - see docs/change_impact/llm_max_completion_tokens_compatibility.md's 'Live verification' and 'Tests' sections."
+    },
+    "config/long_term_memory.json (flagged by Sprint 55/56) diagnosed by Sprint 57: not valid JSON, not gzip, not standard zlib, not any common text encoding; Shannon entropy 7.65 bits/byte (of max 8.0) consistent with encrypted/compressed data, not ordinary corruption; no backup exists for this specific file. Format/root cause UNKNOWN - explicitly DEFERRED, not fixed (not clearly safe without a known encoding/backup, and out of scope for a contextual-HA sprint regardless). Existing load path already fails closed safely (empty long-term memory store, clear console warning).",
+    "Sprint 58 (HA Multi-Entity & Group Commands): area-scoped groups (\"semua lampu di kamar\") and contextual groups (\"Matikan semuanya.\") are deliberately NOT implemented - zero area/room metadata exists anywhere in this project's device registry (confirmed by grep), and Sprint 57's device memory is a genuinely single-slot design; both shapes are detected where safely possible and refused/left untouched honestly rather than guessed. Multi-target detection is additionally scoped to pure Indonesian \"dan\"-joined text only (comma/\"and\"/\"then\"-joined explicit lists are not detected as a group, to avoid a confirmed regression against an existing mixed-utterance test - see docs/change_impact/ha_multi_entity_commands.md sections 4-5, 15).",
+    "Sprint 59 (Single-Room HA Group Control): multi-room/general area-management abstraction is explicitly OUT OF SCOPE by design (not a gap) - this sprint recognizes exactly one room name (\"kamar\"), identified via converging textual evidence (entity_id naming, environment_triggers.json's pre-existing grouping, persona.json's illustrative phrasing), not a structured config field. This approach would NOT generalize safely to a second room without a real, structured area/room field added to the device config schema first - see next_recommended_sprint.",
+    "Pre-existing test-fixture discrepancy found by Sprint 59, documented not fixed: the real config/lights.config.json defines RGB Computer's entity_id as light.komputer, but the shared cross-sprint test fixture _REAL_LIGHTS in tests/test_sprint52_ha_entity_resolution.py (used by every HA test file since Sprint 52 via _patch_real_devices()) incorrectly defines it as light.kamar_tidur_pc. Source code is authority - the real config file is correct - but the shared fixture was deliberately left unchanged (cross-sprint blast radius, out of scope for this sprint).",
+    "Sprint 60 (Structured Room/Area Schema Foundation): only luno.devices.LIGHTS (the light domain) supports the new \"area\" field - SWITCHES' flat name->entity_id format has no per-device object to carry it, and no switch has location evidence anyway. Multi-room COMMAND DETECTION/EXECUTION is NOT implemented (deliberately, per this sprint's own scope) - only the schema/registry foundation. \"semua lampu kamar\" (no preposition) still never captures an area word at all (_GROUP_AREA_RE requires \"di\"/\"in\"), unaffected by this sprint - pre-existing Sprint 58 behavior.",
+    "Sprint 60 found an unexplained discrepancy: the full-repository test suite's actual, directly-verified collection is 3190 tests (pytest --collect-only, confirmed both with and without this sprint's changes present), materially fewer than the 3983 Sprint 59's own regression baseline documented. This could not be explained from within Sprint 60's scope (no test file was removed by Sprint 60) and is reported here as an open item rather than silently reconciled or ignored - see docs/change_impact/area_schema_foundation.md sections 10 and 15.",
+    "config/long_term_memory.json remains corrupted/unrecoverable in this sandbox as of Sprint 63 - new forensic evidence (entropy discontinuity + embedded MIT LICENSE text at the file's tail) suggests the file's current content is an accidental fragment of an unrelated binary artifact, not genuine encrypted memory data, so no automated recovery was attempted (STOP CONDITION - see ARCHITECTURE_GUARD.md §64 and docs/change_impact/long_term_memory_recovery.md). The loader already fails closed safely (empty long-term memory store). Recommended: user should check their own machine/backups for a valid long_term_memory.json snapshot dated after 2026-08-09 and before the current corruption.",
+    "Sprint 64: config/long_term_memory.json's corruption ORIGIN remains UNKNOWN (a valid, explicitly-accepted result per the sprint's own brief, not a failure to conclude) - no specific, provable external source was identified. What IS confirmed via structural code audit + a negative-control reproduction: luno.memory._save()/_atomic_write_json() (the sole production writer of LONG_TERM_MEMORY_FILE) cannot have produced the observed artifact under any failure mode - future sprints should not re-investigate luno.memory's own code as a suspect. The bounded/partial MIT-license-tail fingerprint search found no exact match in this sandbox; it would have far more diagnostic value run against the original host environment (Sprint 55 or earlier), if that ever becomes available. See ARCHITECTURE_GUARD.md §65 and docs/change_impact/long_term_memory_corruption_forensics.md.",
+    "Sprint 65: no provable path was found by which Luno can modify its own source code/config, but two LOW/INFO findings remain documented for future awareness - SPRINT65-002 (browser download path containment is a configuration invariant, not a code-level guarantee: safe today because BROWSER_DOWNLOAD_DIR defaults outside the source tree, but nothing stops a future misconfiguration from changing that) and SPRINT65-001 (the closed tool registry has no automated regression gate against a future sprint widening it beyond this sprint's own tests). One item marked UNKNOWN rather than guessed: whether the actual deployed Home Assistant instance/network could be configured to reach back into this project's filesystem - unknowable from source code alone. See ARCHITECTURE_GUARD.md §66 and docs/change_impact/tool_file_access_audit.md.",
+    "P0.6.2-FIX: the actual, ultimate root cause of the 'Conv' object has no attribute 'bn' error can only be confirmed on the user's real machine - this sandbox has no ultralytics package installed and no network route to download it, so the detection smoke test (tests/test_p0_6_2_fix_vision_runtime_parity.py::test_21_real_yolo_detects_a_person_in_a_real_photo_if_environment_supports_it) has never actually executed against a real model in this project's history; it is written to run for real (production YOLO_MODEL_PATH weights, a real photo of a person) and will only do so - not skip - on a machine where ultralytics/cv2 are importable. A full literal whole-repository pytest run also could not complete within this environment's per-tool-call time budget this sprint; the targeted regression set (matching every prior sprint's own practice) plus a dedicated 8-file spot-check of every other Vision/camera-adjacent test file is the basis for this sprint's 'no unexplained regression' claim.",
+    "P0.6.3: found (not fixed, out of this sprint's scope) a pre-existing test-isolation defect in tests/test_vision_sprint8.py - its own _install_fake_real_vision() helper permanently, non-restoringly reassigns luno.vision.camera_status/capture_frame/etc. at module level (no try/finally, no monkeypatch fixture). Running that file in the same pytest process as tests/test_sprint69_camera_stability.py/tests/test_sprint69_1_camera_dashboard_forensics.py causes 13 cross-file-pollution failures that vanish when either group runs alone. Confirmed via direct source read and reproduction/isolation testing to be unrelated to any sprint's production code changes (Sprint-8 era, predates this sprint line). Every regression command in this project's history already avoids this specific file combination by construction, so it has never produced a false 'production regression' report - but a future sprint should be aware of it before combining these files in one pytest invocation, and could consider fixing test_vision_sprint8.py's own monkeypatch hygiene (wrap in try/finally or use pytest's monkeypatch fixture) as a low-priority cleanup.",
+    "P0.7: VisionContext only refreshes on the four pre-existing discrete Vision events (human_detected/human_cleared/camera_offline/camera_online) - an object appearing, or the person count changing, WHILE a person is already continuously present does not itself retrigger automation this sprint (deliberate - Section 9's own 'avoid polling-driven events' constraint). Live hardware verification remains BLOCKED for the agent (same structural sandbox limitation as every prior sprint in this line). No before/after performance numbers were measured (no real camera/GPU load exists in this sandbox).",
+    "P0.8.0: the state-aware 'already in the requested state -> skip' optimization (AutomationEngine.ha_state_reader) is only ever exercised against a REAL Home Assistant client on the user's own machine - in this sandbox (mock backend) it correctly stays unwired (ha_state_reader is None), a legitimate 'optimization unavailable' state per the brief's own 'if already available' wording, not a failure. Live hardware verification (a real light actually turning on/off via a camera-triggered rule) remains BLOCKED for the agent (same structural sandbox limitation as every prior sprint in this line) and is explicitly deferred to P0.8.1 per this sprint's own hard constraint (no real light turn-on/off during P0.8.0). No before/after performance numbers were measured (the safety gate is a handful of dict lookups/string comparisons with one optional function call; no real camera/HA load exists in this sandbox to measure against regardless).",
+    "P0.8.1: live hardware verification (the six-test walk-test, a real light actually observed turning on) remains BLOCKED for the agent - the pre-flight itself hard-stopped in this sandbox (no network route to real camera/HA hardware, ultralytics not installed, CAMERA_AUTOMATION_ENABLED currently False in this checkout) before any test could run, per the brief's own hard-stop discipline. The six-test sequence uses input()-gated prompts to pace a human tester through physical actions (walk in/out of frame, manually toggle the light) - it cannot be run fully unattended; a --non-interactive flag exists for a scripted/fixed-delay fallback, but the underlying physical actions still require a human. No before/after performance numbers were measured (trivial in-memory overhead, no real camera/HA load exists in this sandbox to measure against).",
+    "P0.10: occupancy_long_presence_test's exact condition combination (occupancy_changed trigger + presence_duration_seconds >= 30 while still occupied) has a narrow-to-nonexistent natural firing window under the current event semantics - occupancy_changed only fires AT a transition instant, where duration is ~0 on entry and state is no longer 'occupied' on exit. The condition-evaluation MECHANISM is correct and tested (test_R3, a real-bootstrap mechanism test); the specific example rule shape, as literally specified in the brief, will rarely if ever fire on its own in production without a future sprint adding periodic/duration-triggered re-evaluation (out of scope this sprint - no new persistence/scheduling was introduced). Real Home Assistant hardware and physical WLED behavior were NOT exercised this sprint (same structural sandbox limitation as every prior sprint in this line) - every test routes through MockHomeAssistantHandler."
+  ],
+  "invariants": [
+    "No embeddings, no LLM-based memory judge, no second ranking system.",
+    "No giant/unbounded synonym dictionary; no unrestricted fuzzy matching; no general-purpose stemmer.",
+    "No unbounded entity graph; no persistent raw conversation storage; no global topic state.",
+    "_rank_key(), _apply_budget(), assemble_context()'s parameter list are untouched by Sprints 43-50.",
+    "ActiveTopicSnapshot's field set unchanged since Sprint 40 (terms, turns_since_active, list_items, status, source_sentence) - confirmed sufficient by Sprints 44/45/47/48/49's own independent investigations. Sprint 50 introduced no new topic/entity representation at all - only two additive, non-text MemoryTurnTrace fields (topic_decision, ambiguity_check_result), both mirroring values the architecture was already computing.",
+    "_active_topic / _topic_history remain plain, bounded, in-memory dicts - never persisted to disk.",
+    "TTS, streaming, cancellation, voice output modes (ALL/SHORT), response depth system untouched by Sprints 43-50.",
+    "classify_reference_type()'s REFERENCE_TYPES taxonomy (10 members) unchanged since Sprint 38 - every fix has been additive to existing types' own matching, never a new type.",
+    "is_active_topic_relevant_to_query()'s distinct_other_count threshold remains >= 2 for its own original tier (NOT >= 1); Sprint 48's own == 1 demonstrative-anchoring gate and Sprint 49's own differentiator-disagreement gate are both untouched and unwidened by Sprint 50.",
+    "_extract_entity_differentiator()'s own UPPERCASE-only, letters-only scope (Sprint 49) must not be widened to lowercase or digits without a fresh safety analysis - unchanged by Sprint 50.",
+    "The coverage > 0.5 threshold value itself is unchanged since Sprint 43 - still strictly '>', never '>=', per Sprint 46's own 'Rejected #1'.",
+    "(New, Sprint 50) The 5 new Event Bus publishes in _handle_utterance() are OBSERVATIONAL ONLY - nothing downstream reads one back to change behavior. Turning this into a second decision system by having code react to one of these events would violate this sprint's own explicit non-negotiable.",
+    "(New, Sprint 50) EventLogWriter is off by default on RuntimeDemoConsole (enable_observability_log=False) and unconditional on DashboardServer - this split must not be inverted without re-verifying the ~2900 pre-existing tests still get zero new files.",
+    "(New, Sprint 50) luno.replay.replay_case() must never call a real LLM - replay's entire value as a deterministic regression tool depends on this; verified via a same-case-twice determinism test.",
+    "(New, Sprint 50) A real-world test case is born status='candidate' and is NEVER auto-promoted - only an explicit set_case_status(..., 'approved') call moves it into the directory replay_all()'s default sweep reads.",
+    "config/*.json (15 top-level files) confirmed unmodified by SHA256 every sprint since 43 for that sprint's OWN source edits. Sprint 50's own full 8-chunk sweep was byte-identical (a stronger result than some prior sprints, where other pre-existing tests happened to touch relationship_state.json/long_term_memory.json during that particular sweep - not the case this run). logs/ and tests/real_world/ are new directories but are NOT config/ - they hold this sprint's own bounded, documented, git-trackable output, not a change to Luno's persistent memory/config schema.",
+    "(New, Dashboard Turn-State Recovery fix) The reused llm_error publish in _run_utterance_turn_safely() is a RECOVERY signal only, never a second decision system - no code may react to it to change conversation-intelligence behavior. _is_expected_client_disconnect()'s narrow errno/winerror check must not be widened without a newly-observed, concrete errno to justify it. _handle_utterance()'s own body and every one of its existing internal try/except blocks must remain byte-for-byte unchanged by any future extension of this pattern.",
+    "Sprint 71: a Dashboard HTTP-listener bind failure (OSError, e.g. port already in use) must never crash the rest of the running Luno process - it must degrade to the same already-established, already-tested DASHBOARD_ENABLED=false state (rest of Luno keeps working, no dashboard). DashboardBindError subclasses OSError (not a new base) so any existing `except OSError` caller is unaffected.",
+    "Camera Patrol (Sprint 71): CameraPatrolModule must never implement its own PTZ movement - every preset move must dispatch through the existing tool_requested -> ToolManagerBridgeModule -> ToolManager -> camera_ptz path. A loop=true PatrolRoute must always be rejected by validate_route() unless max_cycles or max_duration_seconds is set. The pre-dispatch hook mechanism on ToolManagerBridgeModule must remain a no-op by default (empty list) for any tool that does not register one.",
+    "Automation Engine (Sprint 72): AutomationEngine must never implement its own Event Bus, Scheduler, or device-dispatch mechanism - trigger delivery reuses event_bus.subscribe('*', ...), time triggers reuse runtime.scheduler.schedule_predicate(), every action dispatches through the existing tool_requested -> ToolManagerBridgeModule -> ToolManager round trip. No rule/condition/action schema field may ever hold an expression/code string - validate_rule() must reject anything outside TRIGGER_TYPES/CONDITION_TYPES/ACTION_TYPES. The LLM/planner may only ever select a registered rule_id, never construct an arbitrary action."
+  ],
+  "critical_files": [
+    "luno/memory.py",
+    "luno/memory_context.py",
+    "luno/memory_retrieval/",
+    "main_runtime_demo.py",
+    "luno/dashboard/",
+    "luno/test_capture.py",
+    "luno/replay.py",
+    "ARCHITECTURE_GUARD.md",
+    "docs/testing/regression_baseline.md",
+    "docs/change_impact/runtime_observability.md",
+    "docs/change_impact/entity_provenance_disambiguation.md",
+    "docs/change_impact/bounded_entity_provenance.md",
+    "docs/change_impact/semantic_entity_identity.md",
+    "docs/change_impact/contextual_reference_robustness.md",
+    "docs/change_impact/entity_identity_semantic_alias_continuity.md",
+    "docs/change_impact/entity_concept_continuity.md",
+    "docs/change_impact/semantic_context_bridging.md",
+    "tests/test_runtime_observability.py",
+    "tests/test_real_world_capture.py",
+    "tests/test_replay_engine.py",
+    "tests/test_entity_provenance_disambiguation.py",
+    "tests/test_bounded_entity_provenance.py",
+    "tests/test_semantic_entity_identity.py",
+    "tests/test_contextual_reference_robustness.py",
+    "tests/test_entity_identity_semantic_alias_continuity.py",
+    "tests/test_entity_concept_continuity.py",
+    "tests/test_semantic_context_bridging.py",
+    "tests/test_conversation_reference_resolution.py",
+    "docs/change_impact/dashboard_turn_state_recovery.md",
+    "tests/test_dashboard_turn_state_recovery.py",
+    "luno/dashboard/server.py (Sprint 71: DashboardBindError, _describe_bind_failure, guarded socket bind in start())",
+    "main.py (Sprint 71: dashboard.start() call site now guarded against OSError)",
+    "luno/camera_patrol/route.py",
+    "luno/camera_patrol/state.py",
+    "luno/camera_patrol/controller.py",
+    "luno/tool_manager/builtin/camera_patrol.py",
+    "luno/automation/models.py",
+    "luno/automation/conditions.py",
+    "luno/automation/engine.py",
+    "luno/tool_manager/builtin/automation.py"
+  ],
+  "modified_files": [
+    "luno/automation/models.py (P0.14 - 7 new ACTION_TYPES, 3 new sequence control step types, new validators, new bounds, ExecutionStatus.CANCELLED/TIMEOUT)",
+    "luno/automation/engine.py (P0.14 - _run_sequence_step() dispatch router, _run_stop_step()/_run_wait_until_step()/_run_condition_step(), _build_p0_14_tool_call())",
+    "luno/tool_manager/builtin/home_assistant.py (P0.14 - call_service + activate_scene mock actions)",
+    "luno/tool_manager/builtin/real_home_assistant.py (P0.14 - call_service + activate_scene real dispatch; run_script gained optional variables)",
+    "luno/dashboard/automation_api.py (P0.14 - new get_devices() function + _DEVICE_CATEGORIES_WITHOUT_LOCAL_REGISTRY; _known_devices() additively includes luno.devices.SCRIPTS)",
+    "luno/dashboard/server.py (P0.14 - one new GET branch, /api/automations/devices, positioned before the /api/automations/{id} catch-all)",
+    "luno/dashboard/static/index.html (P0.14 - new action/step icon+label+default-param entries, new renderStepParamFields()/renderCondConditions()/renderCondBranch()/renderCondSubStepFields() branches, new Add Wait Until/Condition/Stop buttons, generalized entity-picker/JSON-textarea/entity-list event bindings, CANCELLED/TIMEOUT status colors, honest Home Assistant unavailable hint)",
+    "tests/test_p0_12_automation_api.py (P0.14 - test_M3 re-expressed as AST-based import/instantiation check, no longer false-positives on the type-name string comparison get_devices() legitimately uses)",
+    "tests/test_p0_13_automation_dashboard.py (P0.14 - test_T1/test_T3/test_SCHEMA5 fixed forward: same guard intent, precise word-boundary/AST checks instead of bare substring/lowered-source-segment scans that false-positived on P0.14's own legitimate new schema strings/comments/script domain)",
+    "ARCHITECTURE_GUARD.md",
+    "docs/testing/regression_baseline.md",
+    "docs/project_handover.md",
+    "docs/project_handover.json",
+    "luno/automation/models.py (P0.15 - TIME_CONDITION_TYPE constant, additive AutomationCondition.parameters field, _validate_time_condition())",
+    "luno/automation/conditions.py (P0.15 - _parse_hhmm(), optional now= parameter, time-condition branch with normal/overnight comparison logic)",
+    "luno/automation/__init__.py (P0.15 - re-exports TIME_CONDITION_TYPE)",
+    "luno/dashboard/static/index.html (P0.15 - Time condition card, natural-language automation summaries, empty/loading states, inline validation messages)"
+  ],
+  "created_files": [
+    "tests/test_p0_14_ha_script_actions.py",
+    "docs/change_impact/ha_script_actions_p0_14.md",
+    "tests/test_p0_15_time_conditions.py",
+    "docs/change_impact/time_conditions_p0_15.md"
+  ],
+  "tests": {
+    "targeted": "54 passed, 0 failed (tests/test_p0_12_automation_api.py, new this sprint) + 78 passed, 0 failed (tests/test_sprint72_automation_engine.py, zero regression) + 73 passed, 0 failed (tests/test_dashboard.py + tests/test_memory_dashboard.py, zero regression) + 235 passed, 2 failed (ToolManager + all camera-automation/Vision suites; both failures are the already-documented CAMERA_AUTOMATION_ENABLED=true .env drift)",
+    "full_regression": "Full 158-file repository sweep (8-chunk methodology, pytest -n 4 --timeout=90 per chunk): 4507 passed, 44 failed. Every failure individually traced to an already-documented pre-existing category: LLM .env MAX_TOKENS_PARAM override (7), config/backups/ forensic drift + download-directory timing sensitivity (17), no-audio-hardware/.env mic gap, RealWhisperSource._device_index construction gap, real credentials in .env, real light.main_light config drift, CAMERA_AUTOMATION_ENABLED=true .env drift (remaining 20), and one confirmed parallel-load-only timing flake (test_p0_11_action_sequence.py::test_F2_completed_status_after_full_success, re-confirmed clean via isolated re-run). Zero failures touch luno/automation/, luno/dashboard/, luno/vision.py, luno/vision_occupancy.py, or luno/camera_automation/.",
+    "known_failures": [
+      "test_mic_device_index.py (4 tests) - environment-specific",
+      "test_production_launcher.py (2 tests) - environment-specific",
+      "test_real_adapters.py (2 tests) - infrastructure",
+      "test_llm_dashboard.py::test_api_llm_endpoint_reports_manager_state - environment-specific",
+      "test_llm_tts_streaming_production.py (5 tests this run, count varies) - network-dependent, directly re-confirmed via a live SpeechStreamIdleTimeout/fish_audio error this sprint",
+      "test_dashboard.py / test_emotion_engine.py / test_streaming_e2e.py / test_streaming_speech_integration.py / test_tts_chunk_pipelining.py / test_tts_e2e_pipeline.py / test_voice_pipeline_latency.py / test_state_isolation.py / test_runtime_demo.py (episodic memory test, new to this sprint's own run) - full-suite-only cross-test timing interference, all pass individually/isolated",
+      "test_main_bargein.py / test_root_main_bargein.py - uncollectible, dependency-related",
+      "test_llm_max_completion_tokens_compatibility.py (7 tests) - environment-specific (.env MAX_TOKENS_PARAM override)",
+      "test_memory_session_summary_api_compatibility.py (5 tests) - environment-specific (.env MAX_TOKENS_PARAM override)",
+      "test_sprint63_long_term_memory_recovery.py (2), test_sprint64_memory_corruption_forensics.py (3), test_sprint68_mutation_audit_hardening.py (1) - environment-specific (accumulated config/backups count)",
+      "test_llm_max_completion_tokens_compatibility.py / test_memory_session_summary_api_compatibility.py (pre-existing, .env MAX_TOKENS_PARAM mismatch, unrelated to Camera Patrol) - reconfirmed present, unchanged, during Sprint 71 Camera Patrol's own full sweep."
+    ],
+    "new_sprint60_test_file": "tests/test_sprint60_area_schema.py - 27 passed, 0 failed",
+    "new_sprint59_test_file": "tests/test_sprint59_single_room_group_control.py - 21 passed, 0 failed",
+    "new_sprint58_test_file": "tests/test_sprint58_ha_multi_entity_commands.py - 27 passed, 0 failed (1 assertion updated this sprint, still 27/27)",
+    "new_sprint61_test_file": "tests/test_sprint61_generalized_area_groups.py - 34 passed, 0 failed",
+    "new_sprint62_test_file": "tests/test_sprint62_multi_domain_area_groups.py - 26 passed, 0 failed",
+    "new_sprint63_test_file": "tests/test_sprint63_long_term_memory_recovery.py - 24 passed, 0 failed (diagnosis/reproduction tests only, no production code exercised beyond the existing luno/memory.py loader/hardening functions)",
+    "new_sprint64_test_file": "tests/test_sprint64_memory_corruption_forensics.py (15 tests, 0 failed)",
+    "new_sprint65_test_file": "tests/test_sprint65_tool_file_access_audit.py (27 tests, 0 failed)",
+    "sprint66_targeted": "198 passed, 0 failed (tests/test_sprint66_tool_boundary_hardening.py [40] + tests/test_sprint65_tool_file_access_audit.py [27] + luno/tool_manager/tests/ + tests/test_browser_wiring.py + tests/test_desktop_control.py)",
+    "sprint66_full_regression": "3316 passed, 38 failed, 3 skipped, 1 collection error - all matching Sprint 65's already-classified full-suite-only timing/environment-coupled flakiness; zero failures relate to the browser download boundary or tool registry code this sprint touched",
+    "sprint67_targeted": "1633 passed, 3 skipped, 0 failed (tests/test_sprint67_mutation_audit_trail.py [48] + Sprint 63/64/65/66's own 118 tests + full 27-file/1103-test memory suite + luno/tool_manager/tests/ + tests/test_browser_wiring.py + tests/test_desktop_control.py + tests/test_relationship_engine.py + tests/test_response_policy.py + tests/test_proactive.py)",
+    "sprint67_full_regression": "3374 passed, 28 failed, 3 skipped - all matching Sprint 62-66's already-classified full-suite-only timing flakiness or the pre-existing list_microphones.py-absent environment gap; zero failures touch luno/persistence.py, luno/memory.py's save path, luno/mutation_audit.py, or the browser download boundary",
+    "sprint71_camera_patrol_targeted": "tests/test_sprint71_camera_patrol.py: 37 passed, 0 failed (new this sprint, stable across 4 consecutive full runs). Combined targeted (camera_patrol + tool_manager + planner + Sprint 69/70 suites + dashboard startup recovery suite): 322 passed, 0 failed.",
+    "sprint71_camera_patrol_full_regression": "Full repository sweep (8 chunks): every failure traced to pre-existing environment/checkout-state causes (.env MAX_TOKENS_PARAM override, MIC_DEVICE_INDEX/missing optional deps, accumulated config/backups count, documented barge_in parallel-timing flake class), with one legitimate in-scope forward-fix: test_sprint68_mutation_audit_hardening.py's hardcoded config-file-count literal (15->16), justified and documented. Zero failures touch luno/camera_patrol/ or luno/tool_manager/builtin/camera_patrol.py.",
+    "sprint72_automation_engine_targeted": "tests/test_sprint72_automation_engine.py: 78 passed, 0 failed (new this sprint, stable across 3 consecutive full runs). Combined targeted (automation_engine + camera_patrol + dashboard-startup-recovery + Sprint 69/70 suites + tool_manager + planner + core): 419 passed, 0 failed.",
+    "sprint72_automation_engine_full_regression": "Full repository sweep (chunked): every failure traced to pre-existing environment/checkout-state causes (.env MAX_TOKENS_PARAM override, MIC_DEVICE_INDEX/missing optional deps, accumulated config/backups and logs/mutation_audit state, documented barge_in and test_llm_tts_streaming_production.py full-suite-only timing flakes), with two legitimate in-scope forward-fixes: test_sprint68_mutation_audit_hardening.py's config-file-count literal (16->17) and test_sprint65_tool_file_access_audit.py's security scanner correctly flagging this sprint's own docstring prose (reworded). Zero failures touch luno/automation/ or luno/tool_manager/builtin/automation.py.",
+    "p0_camera_automation_targeted": "tests/test_p0_camera_automation.py: 23 passed, 0 failed (new this sprint). Every existing test file that calls register_all_modules (the one function this sprint's single existing-file edit lives in) spot-verified individually: test_sprint71_camera_patrol.py, test_sprint71_dashboard_startup_recovery.py, test_sprint72_automation_engine.py, test_dashboard.py, test_production_launcher.py, test_proactive.py, test_state_isolation.py, test_conversation_ended_lifecycle_routing.py, test_memory_dashboard.py, test_routing_dashboard.py, test_llm_dashboard.py - all pass unchanged (the one test_production_launcher.py failure present is the same pre-existing network-egress-blocked failure counted in the baseline, not new).",
+    "p0_camera_automation_full_regression": "Full repository sweep (8-chunk methodology, before: 4510 collected/4480 passed/30 failed/0 skipped; after: 4533 collected/4503 passed/30 failed/0 skipped): the exact same 30 tests, same assertions, same pre-existing environment-specific/timing-flake causes as the baseline - zero new failures, zero previously-failing tests newly passing. Zero failures touch luno/camera_automation/ or luno/bootstrap/modules.py's own new wiring.",
+    "p0_5_real_camera_integration_targeted": "tests/test_p0_5_camera_integration.py: 36 passed, 0 failed (new this sprint). tests/test_p0_camera_automation.py: 23 passed, 0 failed (re-run COMPLETELY UNMODIFIED from P0). Combined targeted (p0_5 + p0_camera_automation + sprint72_automation_engine + adapters/tests/test_adapters.py): 152 passed, 0 failed.",
+    "p0_5_real_camera_integration_full_regression": "Full repository sweep (8-chunk methodology, before: 4533 collected/4503 passed/30 failed/0 skipped; after: 4569 collected [4533+36 new]/4538 passed/31 failed/0 skipped). 30 of 31 failures are the identical pre-existing baseline failures. The 31st, test_streaming_e2e.py::test_D_barge_in_between_llm_and_tts_chunk_never_plays, was investigated (not assumed pre-existing): re-run in isolation passes 6/6, and is the EXACT SAME test this file's own known_baseline_failures array already documents as a non-deterministic full-suite/parallel-timing flake dating to Sprint 49 - luno/camera_automation/ shares zero code with the TTS/barge-in/LLM streaming subsystem that test exercises. Zero failures touch luno/camera_automation/cameras.py or module.py's own new classification branch.",
+    "p0_5_1_targeted": "tests/test_ha_camera_discovery.py (new, 8 passed, 0 failed) + tests/test_p0_camera_automation.py (23 passed, 0 failed, unmodified) + tests/test_p0_5_camera_integration.py (36 passed, 0 failed, unmodified) = 67 passed, 0 failed. tests/test_sprint68_mutation_audit_hardening.py spot-check: 65/67 passed - the 2 failures are pre-existing environmental drift (config/backups file count, mutation-audit-dir baseline) traced to real files dated Aug 11-18, predating this sprint; unrelated (no file under luno/ touched, no backup/mutation-audited write performed this sprint). No full-repository sweep was required or run - this sprint touched no file under luno/, so the existing full-sweep baseline is unaffected by construction.",
+    "p0_5_2_targeted": "tests/test_tapo_camera_event_audit.py (new, 18 passed, 0 failed) + tests/test_p0_camera_automation.py (23) + tests/test_p0_5_camera_integration.py (36) + tests/test_ha_camera_discovery.py (8) + tests/test_sprint69_tapo_c212_auth.py + tests/test_sprint70_tapo_live_recovery.py (50 combined) + tests/test_sprint71_camera_patrol.py + luno/tool_manager/tests/test_camera_ptz.py, all unmodified - baseline 181 passed/0 failed (recorded before any new code this sprint), after 199 passed/0 failed (181+18). No full-repository sweep was required or run - this sprint touched no file under luno/.",
+    "p0_5_3_targeted": "tests/test_p0_5_3_vision_camera_bridge.py (new, 26 passed, 0 failed) + baseline suites (luno/adapters/tests/test_adapters.py, tests/test_camera_presence.py, tests/test_sprint69_1_camera_dashboard_forensics.py, tests/test_vision_sprint8.py, tests/test_vision_ask_vision.py, tests/test_vision_intent.py, tests/test_vision_intent_classifier.py, tests/test_vision_provider.py = 144; tests/test_p0_camera_automation.py = 23; tests/test_p0_5_camera_integration.py = 36; tests/test_ha_camera_discovery.py = 8; tests/test_tapo_camera_event_audit.py = 18; tests/test_sprint72_automation_engine.py = 78) all unmodified and re-run - baseline 307 passed/0 failed (recorded before any new code this sprint), after 333 passed/0 failed (307+26). tests/test_sprint68_mutation_audit_hardening.py spot-check: 65/67, same 2 pre-existing unrelated environmental failures already documented in P0.5.1/P0.5.2.",
+    "p0_5_4_targeted": "No new tests this sprint (verification-only, zero code changes - nothing new to unit test). Re-ran the full existing baseline: tests/test_p0_camera_automation.py (23) + tests/test_p0_5_camera_integration.py (36) + tests/test_ha_camera_discovery.py (8) + tests/test_tapo_camera_event_audit.py (18) + tests/test_p0_5_3_vision_camera_bridge.py (26) + Vision/adapters suites (144) + tests/test_sprint72_automation_engine.py (78) = 333 passed, 0 failed, both before and after this sprint's activity (identical - no code changed). tests/test_sprint68_mutation_audit_hardening.py spot-check: 65/67, same 2 pre-existing unrelated environmental failures already documented in P0.5.1/P0.5.2/P0.5.3.",
+    "p0_5_4_live_targeted": "tests/test_luno_live_camera_event_observer.py (new, 13 passed, 0 failed) + full existing baseline (333 tests across P0/P0.5/P0.5.1/P0.5.2/P0.5.3/Vision/adapters/automation_engine) re-run unmodified - baseline 333 passed/0 failed (unchanged from P0.5.4, since P0.5.4 also made zero code changes), after 346 passed/0 failed (333+13). tests/test_sprint68_mutation_audit_hardening.py spot-check: 65/67, same 2 pre-existing unrelated environmental failures already documented since P0.5.1.",
+    "p0_5_4_fix_observer_tests": "16/16 passing (13 from P0.5.4-LIVE + 3 new wiring/config proofs)",
+    "p0_5_4_fix_targeted_regression": "334/334 passing (331 baseline + 3 new), zero new failures",
+    "p0_6_tests": "27/27 passing (tests/test_p0_6_camera_automation_rules.py)",
+    "p0_6_targeted_regression": "251/251 passing (224 baseline + 27 new), zero new failures",
+    "p0_6_spot_check": "99/99 passing (camera_patrol/adapters/dashboard, unaffected)",
+    "p0_6_1_tests": "15/15 passing (tests/test_p0_6_1_live_log_verification.py)",
+    "p0_6_1_targeted_regression": "266/266 passing (251 baseline + 15 new), zero new failures",
+    "p0_6_2_tests": "33/33 passing (tests/test_p0_6_2_camera_ha_action.py)",
+    "p0_6_2_targeted_regression": "349/349 passing (301 baseline + 48 new/added), zero new failures",
+    "p0_6_2_spot_check": "84/84 passing (camera_patrol/dashboard, unaffected)",
+    "p0_6_2_fix_tests": "tests/test_p0_6_2_fix_vision_runtime_parity.py - 21 tests (5 Configuration, 5 Runtime parity, 7 Error handling, 3 Safety, 1 Detection smoke test - environment-skipped in this sandbox, honest not fabricated).",
+    "p0_6_2_fix_targeted_regression": "Baseline 428 passed/0 failed -> after 448 passed + 1 honestly-skipped / 0 failed (targeted camera/Vision/automation-engine set, same files as every prior sprint in this line plus the new test file).",
+    "p0_6_2_fix_spot_check": "8-file sweep of every other Vision/camera-adjacent test file in the repo found 3 failures, all confirmed pre-existing/environmental and outside this sprint's diff scope: test_production_launcher.py::test_07 (OpenRouter/Fish Audio external network health checks, sandbox proxy returned 403 Forbidden), test_real_adapters.py::test_real_whisper_source_* (2 tests - AttributeError in luno/adapters/real_whisper.py, a file never touched this sprint).",
+    "p0_6_3_tests": "tests/test_p0_6_3_unified_vision_camera_automation.py - 31 tests (6 Architecture, 5 Detection, 2 Other objects, 2 Camera state, 7 Error handling, 5 Automation, 3 Dashboard + 1 diff-scope marker).",
+    "p0_6_3_targeted_regression": "Main targeted set: baseline 454 passed/1 skipped/0 failed -> after 485 passed (+31 new)/1 skipped (unchanged)/0 failed. Sprint69 dashboard/stability pair, run isolated (see known_limitations): 37 passed/0 failed, unchanged before and after.",
+    "p0_6_3_spot_check": "5-file sweep (test_memory_retrieval.py, test_production_launcher.py, test_real_adapters.py, test_screen_ask_screen.py, test_state_isolation.py) found and fixed ONE genuine regression this sprint's own change caused (test_real_adapters.py's pre-existing Vision fake missing the new last_presence_detection_error() getter - added a 2-line stub). After the fix: 3 remaining failures, all confirmed the SAME pre-existing/unrelated failures already documented by P0.6.2-FIX (OpenRouter/Fish Audio network checks, real_whisper.py bug).",
+    "p0_7_tests": "tests/test_p0_7_vision_context.py: 40 passed, 0 failed",
+    "p0_7_full_chunked_regression": "10 roughly-equal file-group chunks + 2 isolated groups (test_vision_sprint8.py; test_sprint69_camera_stability.py + test_sprint69_1_camera_dashboard_forensics.py): 3,978 -> 4,018 passed (+40 new). 3 pre-existing tests updated for this sprint's own intentional additive changes (documented). All other failures confirmed pre-existing and unrelated (.env MAX_TOKENS_PARAM mismatch, config/backups accumulation, missing list_microphones.py, RealWhisperSource test-construction bug, blocked OpenRouter/Fish Audio network health checks).",
+    "p0_8_0_tests": "tests/test_p0_8_0_camera_action_safety.py: 48 passed, 0 failed",
+    "p0_8_0_targeted_regression": "Targeted HA/automation/camera set (P0/P0.5.x/P0.6.x/P0.7/Sprint 72/test_real_adapters.py/Sprint 52/56/57/58 HA-adjacent tests), measured before any P0.8.0 file was touched: 329 passed, 1 skipped, 0 failed. After: 329 -> 377 passed (+48 new), 1 skipped (unchanged), 0 failed.",
+    "p0_8_0_full_chunked_regression": "10 roughly-equal file-group chunks + 2 isolated groups (test_vision_sprint8.py; test_sprint69_camera_stability.py + test_sprint69_1_camera_dashboard_forensics.py): 4,018 -> 4,066 passed (+48 new). 3 pre-existing tests updated for this sprint's own intentional additive changes (documented). All other failures confirmed pre-existing and unrelated (.env MAX_TOKENS_PARAM mismatch, config/backups accumulation, missing list_microphones.py, RealWhisperSource test-construction bug, blocked OpenRouter/Fish Audio network health checks - same set as every prior sprint in this line). Isolated groups unchanged (32/32, 37/37).",
+    "p0_8_1_tests": "tests/test_p0_8_1_live_verification.py: 23 passed, 0 failed",
+    "p0_8_1_targeted_regression": "Targeted HA/automation/camera set (P0/P0.5.x/P0.6.x/P0.7/P0.8.0/Sprint 72/test_real_adapters.py), measured before any P0.8.1 file was touched: 427 passed, 1 skipped, 0 failed. After: 427 -> 450 passed (+23 new), 1 skipped (unchanged), 0 new failures.",
+    "p0_8_1_full_chunked_regression": "10 roughly-equal file-group chunks + 2 isolated groups (test_vision_sprint8.py; test_sprint69_camera_stability.py + test_sprint69_1_camera_dashboard_forensics.py): 4,066 -> 4,089 passed (+23 new). Zero pre-existing tests needed updating this sprint. One tests/test_streaming_e2e.py failure observed during the combined sweep was re-run in isolation and passed cleanly (confirmed flaky, not a regression - documented flake-reproduction procedure). Two pre-existing, already-baselined collection errors (test_main_bargein.py/test_root_main_bargein.py - 'the same 2 pre-existing uncollectible files as every prior sprint') reconfirmed unrelated. All other failures confirmed pre-existing and unrelated (.env MAX_TOKENS_PARAM mismatch, config/backups accumulation, missing list_microphones.py, RealWhisperSource test-construction bug, blocked OpenRouter/Fish Audio network health check). Isolated groups unchanged (32/32, 37/37).",
+    "p0_8_2_tests": "tests/test_p0_8_2_human_cleared_light_off.py: 35 passed, 0 failed",
+    "p0_8_2_targeted_regression": "Targeted HA/automation/camera set (P0/P0.5.x/P0.6.x/P0.7/P0.8.0/P0.8.1/Sprint 72/test_real_adapters.py), measured before any P0.8.2 file was touched: 450 passed, 1 skipped, 0 failed. After: 450 -> 485 passed (+35 new), 1 skipped (unchanged), 0 new failures.",
+    "p0_8_2_full_chunked_regression": "Full repository sweep across all 142 test files (140 collectible - same 2 pre-existing uncollectible files as every prior sprint, test_main_bargein.py/test_root_main_bargein.py): 4,052 passed, 37 failed, 1 skipped. Every one of the 37 failures individually re-confirmed against an already-documented pre-existing category with matching counts (.env MAX_TOKENS_PARAM mismatch 12, missing list_microphones.py 6, RealWhisperSource test-construction bug 2, blocked OpenRouter/Fish Audio network health check 1, config/backups file-count drift family 16 - now 51 files). Zero new failures found anywhere in the repository. This sprint's own production code change is confined to config/automation_rules.json, luno/bootstrap/adapters.py, luno/automation/engine.py (one line), and luno_live_p0_8_1_verification.py - none of the 37 failing tests import or exercise any of these files.",
+    "p0_8_6": "tests/test_p0_8_6_end_to_end_human_wled_reliability.py: 25 passed, 0 failed. Targeted P0.x/Vision suite (14 files incl. new): 487 passed, 1 pre-existing skip. luno/tool_manager/tests/test_real_home_assistant_verification.py: 39 passed. luno/ fast suite: 818 passed, 2 failed (both pre-existing FLAKY-KNOWN barge_in timing tests). Full 144-file repository sweep: 4162 passed, 39 failed - every failure mapped to an already-documented pre-existing baseline category (.env/MAX_TOKENS_PARAM, .env/MIC_DEVICE_INDEX, real-credentials-configured, RealWhisperSource device-index/PortAudio, accumulated config/backups/ drift). Zero new failures.",
+    "p0_13_targeted": "65 passed, 0 failed (tests/test_p0_13_automation_dashboard.py, new this sprint)",
+    "p0_13_full_regression": "Full 154-file tests/-directory repository sweep (8-chunk methodology, pytest -n 4 --timeout=90 per chunk): 4464 passed, 45 failed, 5 collection errors, 1 skipped. Every failure/error individually traced to an already-documented pre-existing category: LLM .env MAX_TOKENS_PARAM override (12), config/backups/ + mutation-audit forensic drift (16), no-audio-hardware/.env mic gap (6), RealWhisperSource construction gap (2), real credentials in .env (1), real light.main_light config drift (2), one documented timing-sensitive test (1), CAMERA_AUTOMATION_ENABLED=true .env drift (3, targeted suite), the pre-existing test_main_bargein.py/test_root_main_bargein.py collection-error family, one newly-observed instance of the long-documented real-network/hardware sandbox-isolation limit (test_sprint71_dashboard_startup_recovery.py::test_12_e2e_main_py_survives_dashboard_port_conflict_and_keeps_running - spawns real main.py, which attempts a real HA websocket + RTSP connection unreachable from this sandbox), and one confirmed parallel-xdist-order flake (test_verification_dashboard.py::test_api_verification_reports_a_successful_verified_action_end_to_end, re-confirmed clean standalone). Zero failures touch luno/automation/, luno/dashboard/, luno/vision.py, luno/vision_occupancy.py, or luno/camera_automation/.",
+    "p0_15": "52 passed, 0 failed (tests/test_p0_15_time_conditions.py, new this sprint - time validation, normal/overnight range boundaries, automation behavior, persistence, dashboard source-scan, architecture guards)"
+  },
+  "persistent_state": {
+    "verified": true,
+    "details": "config/*.json (15 files) SHA256-hashed before/after: (1) the full 8-chunk repository sweep - byte-identical (a stronger result than some prior sprints, where other pre-existing tests happened to touch relationship_state.json/long_term_memory.json during that particular sweep - not the case this run); (2) an isolated run of Sprint 50's own 3 new test files alone - byte-identical; (3) an isolated run of those 3 files plus the full Sprint 43-49 core suite - byte-identical. No new config/*.json key, no new persistence path. logs/ and tests/real_world/{candidate,reviewed,approved,rejected}/ are new directories but are NOT config/ - documented, bounded, git-trackable sprint output, not a change to Luno's persistent memory/config schema. One real, minor side effect was found (via this sprint's own regression sweep) and fixed: tests/test_memory_voice_observability.py's pre-existing E2E dashboard test created a real logs/ directory via the new unconditional DashboardServer wiring - fixed by pointing that test at a temp directory. Two log files created before the fix landed remain in this checkout's own logs/ (undeletable from this sandbox - the mounted workspace root does not permit shell-level deletion) - harmless, redaction-verified, not config/*.json state. Dashboard Turn-State Recovery fix: full 8-chunk sweep byte-identical, plus 2 additional independent isolated runs (this fix's own new test file alone; that file plus test_dashboard.py/test_runtime_demo.py/test_wake_barge_in_integration.py), all byte-identical. No new config/*.json key, no new persistence path - this fix only changes in-memory Event Bus/thread-lifecycle behavior. Sprint 71: config/*.json (15 files) SHA-256-hashed immediately before this sprint's first edit and re-hashed after both a full python main.py run (dashboard start/stop) and the full Sprint 71 test suite (including port-conflict/bind-failure/restart scenarios) - byte-identical throughout. config/backups/ file count unchanged (41 before, 41 after; zero files newer than the snapshot).",
+    "sprint66_verified": true,
+    "sprint66_details": "config/*.json (15 files) SHA-256-identical before the test run vs. after the full sweep; critical-file hash set (ARCHITECTURE_GUARD.md, luno/tool_manager/manager.py, luno/tool_manager/registry.py, luno/desktop_control.py, luno/browser/security.py, luno/browser/permissions.py, luno/browser/config.py, luno/tool_manager/builtin/real_browser.py, luno/config.py, main.py, main_runtime_demo.py) confirmed byte-identical before/after. Zero drift.",
+    "sprint67_verified": true,
+    "sprint67_details": "config/*.json (15 files) SHA-256-identical before this sprint's code edits vs. after the full sweep, including long_term_memory.json itself (unchanged since Sprint 55, be3a34ea7d44cf084b73ebba1a6596139acbf96bbd8d4d1c756fad1c943ed45a). Critical-file hash set for this sprint (14 files incl. luno/memory.py, luno/persistence.py, luno/mutation_audit.py, tests/conftest.py) confirmed byte-identical. config/backups/ count unchanged (12 - no new production backup created). No real logs/mutation_audit/ directory exists in the checkout - test isolation held throughout; it is created only by real application usage going forward.",
+    "sprint69_note": "config/*.json (27 files) SHA-256-identical before this sprint's code edits through the end of BOTH full regression sweeps, including long_term_memory.json (be3a34ea7d44cf084b73ebba1a6596139acbf96bbd8d4d1c756fad1c943ed45a - unchanged since Sprint 55). No config migration performed or needed.",
+    "sprint71_camera_patrol_verified": true,
+    "sprint71_camera_patrol_details": "config/*.json SHA-256-hashed immediately before this sprint's first edit and re-hashed after the full regression sweep: exactly one new file appeared (camera_patrol_routes.json, expected and intentional), zero existing config files changed, zero files disappeared. 11 critical source-file hashes confirm exactly the 5 intentionally-modified files changed; every PTZ/Tapo-related file (real_camera_ptz.py, camera_ptz.py, luno/tool_manager/manager.py, luno/tool_manager/builtin/__init__.py, luno/bootstrap/adapters.py, luno/core/events.py) is byte-identical. config/backups/ file count unchanged (43 before, 43 after).",
+    "sprint72_automation_engine_verified": true,
+    "sprint72_automation_engine_details": "config/*.json SHA-256-hashed immediately before this sprint's first edit and re-hashed after the full regression sweep: exactly one new file appeared (automation_rules.json, expected and intentional, still empty), zero existing config files changed, zero files disappeared. 17 critical source-file hashes (every PTZ/Tapo/Event-Bus/Scheduler/ToolManager/persistence/mutation-audit file this sprint's own architecture depends on) confirm byte-identity throughout. config/backups/ file count unchanged (43 before, 43 after).",
+    "p0_camera_automation_verified": true,
+    "p0_camera_automation_details": "Zero new config/*.json files this sprint (env-var-only CAMERA_AUTOMATION_ENTITIES allowlist design - a deliberate choice to avoid the config-file-count-literal forward-fix Sprint 71/72 each required once). test_sprint68_mutation_audit_hardening.py's config-count test re-verified passing at the same count Sprint 72 last set (17), unchanged. config/backups/ file count (43, matching Sprint 72's last snapshot at the time - now understood to have drifted further via real usage in this persistent folder since, per known_baseline_failures) unchanged by this sprint's own runs specifically.",
+    "p0_5_real_camera_integration_verified": true,
+    "p0_5_real_camera_integration_details": "One new config/*.json file this sprint - config/camera_automation.json (per-camera Home Assistant entity-role mapping, shipped with a single tapo_c212 entry, every role field null - no fabricated entity ids). test_sprint68_mutation_audit_hardening.py's config-count test forward-fixed and re-verified passing at the new count (18), same precedent as Sprint 71/72. No existing config file modified.",
+    "p0_5_1_note": "Zero new/modified config files this sprint. config/camera_automation.json and its field count are unchanged from P0.5 (still shipped with every entity role null - discovery output is printed to stdout only, never auto-written to this file, per the brief's own Section 13).",
+    "p0_5_2_note": "Zero new/modified config files this sprint. config/camera_automation.json untouched. No production file under luno/ was modified - confirmed via `find luno -newer <P0.5.1's change-impact doc>`, zero results.",
+    "p0_5_3_note": "Zero new/modified config files this sprint. config/camera_automation.json untouched. Only 4 files under luno/ were modified - confirmed via `find luno -newer <P0.5.2's change-impact doc>` returning exactly vision_bridge.py (new), module.py, __init__.py, and (in luno/bootstrap/) modules.py.",
+    "p0_5_4_note": "Zero new/modified config files this sprint. Zero files under luno/ modified - confirmed via `find luno -newer <P0.5.3's change-impact doc>` returning only a runtime .jsonl log file, no source.",
+    "p0_5_4_live_note": "Zero new/modified config files this sprint. Zero files under luno/ modified - confirmed via `find luno -newer <P0.5.4's change-impact doc>` returning zero results.",
+    "p0_5_4_fix": "No config/*.json touched; zero files under luno/ touched",
+    "p0_6": "config/automation_rules.json changed from {} to one rule (camera_human_detected_log, enabled:true, log-only action)",
+    "p0_6_1": "No config file touched - confirmed via diff audit (automation_rules.json/camera_automation.json/.env absent from changed-file list)",
+    "p0_6_2": "config/automation_rules.json: +1 rule (camera_human_detected_test_action, enabled:true, home_assistant.turn_on on light.wled, cooldown 30s). camera_human_detected_log entry byte-for-byte unchanged.",
+    "p0_6_2_fix": "No persistent config file changed. config/automation_rules.json (both camera_human_detected_log and camera_human_detected_test_action) remains byte-for-byte unchanged - confirmed via tests/test_p0_6_2_fix_vision_runtime_parity.py::test_18_p0_6_2_rule_file_unchanged_still_targets_light_wled. All changes this sprint are additive code changes in luno/vision.py, luno/adapters/real_vision.py, and luno_live_camera_event_observer.py (new module-level cache + getter + one new event publish + one new subscription/print block) - no new config file, no schema change.",
+    "p0_6_3": "No persistent config file changed. config/automation_rules.json remains byte-for-byte unchanged (confirmed via tests/test_p0_6_3_unified_vision_camera_automation.py::test_26_automation_rules_file_unchanged_this_sprint). All changes this sprint are additive code changes in luno/vision.py and luno/adapters/real_vision.py (new module-level cache + getter + one new conditional skip + one new event publish) plus a 2-line addition to a pre-existing test fake in tests/test_real_adapters.py - no new config file, no schema change.",
+    "p0_7": "No new persistence introduced. VisionContext is computed on demand, in memory, never written to disk (no vision_context.json, no camera_history.json, no new database - verified via source scan for open()/json.dump/sqlite3/pickle in vision_context.py). config/automation_rules.json gained one new rule (definition-time config, same existing file/mechanism every prior camera-automation rule already uses) - no new config file, no secrets, no .env changes.",
+    "p0_8_0": "No new persistence introduced. The safety gate's SafetyCheckResult is computed on demand, in memory, never written to disk. config/automation_rules.json gained one new rule (definition-time config, same existing file/mechanism every prior camera-automation rule already uses) - no new config file, no secrets, no .env changes. AutomationEngine.ha_state_reader is an in-memory callable attribute, never serialized.",
+    "p0_8_1": "No new persistence introduced. apply_camera_automation_test_light_override() mutates the already-loaded AutomationRule's action parameters dict IN MEMORY only - config/automation_rules.json on disk is never written to (no _persist_rules() call), verified by a dedicated test comparing the file's on-disk bytes before and after the override runs. No new config file, no secrets, no .env changes."
+  },
+  "entity_continuity": {
+    "identity_rules": [
+      "Exact identity: raw token overlap between the current query and a stored ActiveTopicSnapshot's terms.",
+      "Alias: membership in _TOKEN_SYNONYM_GROUPS (bounded, generic-vocabulary-only, e.g. mic/mikrofon/microphone, pompa/pump, gpu/vga, upgrade/ganti, board/mikrokontroler) or _TOKEN_SYNONYM_PHRASES (kartu grafis -> gpu).",
+      "Abbreviation: falls out of hyphen-based tokenization (e.g. ESP32-S3 -> ['esp32', 's3']) - no dedicated mechanism needed.",
+      "Register variant: gimana/bagaimana treated as the same word in 5 specific locations across luno/memory.py and luno/memory_context.py (Sprint 45).",
+      "Demonstrative-anchored continuation (Sprint 47): an 'unknown'-classified turn whose own 2nd word is 'itu'/'ini' (<=3 real residual tokens) is MERGE-worthy, not replace-worthy - a grammatical, not vocabulary-based, signal.",
+      "Demonstrative-anchored ambiguity refusal (Sprint 48, a DIFFERENT decision using the SAME grammatical signal): a single-real-token query with zero grounding in either of exactly 1 other live topic REFUSES rather than trusts recency when the query is demonstrative-anchored - resolves Sprint 47's own board/mic asymmetry.",
+      "Entity differentiator provenance (Sprint 49, a NEW signal): a standalone, single UPPERCASE letter, word-bounded, anywhere in a turn's own raw source_sentence ('Aquascape A ...', 'Server B ...') is a bounded, deterministic, general-purpose (not domain-specific) disambiguation label. When two topic-history entries' own differentiators disagree, the coverage > 0.5 lineage-skip is bypassed so both entries compete as genuinely distinct entities rather than being silently merged.",
+      "Never fabricated: product-to-category (INMP441 -> mic, ESP32-S3 -> board) and merely-contextual association (gaming -> gpu) links.",
+      "(Sprint 50, observability only - no new identity rule) Every identity/ambiguity decision above is now ALSO published as a bounded, non-text Event Bus event (memory_reference_classified/memory_topic_decision) at the moment it's made, and optionally persisted to disk via EventLogWriter - purely an observability tap, never a second decision, never read back by any of the rules above."
+    ],
+    "alias_rules": [
+      "_TOKEN_SYNONYM_GROUPS and _TOKEN_SYNONYM_PHRASES are the sole alias mechanism - bounded (<=40 total members as of Sprint 45), ordered tuples, deterministic canonical form per group, never a product/entity-specific name. Zero new groups added in Sprint 47, 48, 49, or 50.",
+      "_strip_bounded_affixes() is purely additive when used via _normalize_terms_for_bridging()/_normalize_query_tokens_for_bridging() - never removes the original token, only adds derived forms alongside it.",
+      "_MIN_AFFIX_ROOT_LEN=4 guards prefix/derivational-suffix/English-suffix stripping; _MIN_CLITIC_ROOT_LEN=3 (Sprint 45) is a narrower exception used ONLY for the \"-nya\" clitic pass."
+    ],
+    "ambiguity_rules": [
+      "A query with more than 1 real (stopword-filtered) residual token never qualifies for the low-ambiguity single-token recency fallback (unless it matches the Sprint 47 demonstrative-anchored MERGE shape, which is a different decision - MERGE vs REPLACE, not candidate injection).",
+      "A single real token with zero lexical/normalized overlap against the active topic is refused if 2+ OTHER genuinely distinct topics are live in the bounded topic_history (Sprint 44 Phase 7). This threshold (>=2, not >=1) is a KNOWN, DELIBERATE, twice-reconfirmed-in-Sprint-47 boundary - do not widen without a fundamentally different mechanism, not just a threshold change.",
+      "A single real token with zero lexical/normalized overlap against the active topic AND exactly 1 other distinct topic is ALSO refused when the query is demonstrative-anchored (2nd word is itu/ini) - a SEPARATE, narrower gate than the >=2 tier above (Sprint 48), resolving the board/mic asymmetry without widening that tier.",
+      "Inside the active_score > 0 branch's coverage > 0.5 lineage-skip check (Sprint 49): if BOTH the active topic's own source_sentence and a topic_history entry's own source_sentence contain exactly one standalone uppercase letter each, AND those letters disagree, the lineage-skip does NOT fire - the entry is treated as a genuinely distinct entity and competes normally rather than being silently absorbed into the active topic's lineage. If either side lacks a differentiator, or both sides agree, behavior is UNCHANGED from Sprint 43-48.",
+      "A normalized-evidence tie between 2+ topics returns no candidate (select_topic_candidates()'s normalized tier).",
+      "A raw-token-overlap tie between 2+ topics surfaces ALL matching entries rather than guessing one (select_topic_candidates()'s raw tier - a different, but equally safe, non-fabrication strategy).",
+      "Recency is never used alone to fabricate an entity connection - it is always the last-resort tier, gated by the rules above.",
+      "A lone residual token that is itself a historical-query marker (sebelumnya/dulu/yang lama/pernah) never claims relevance for an active snapshot whose own status is present/future (active/completed/planned) - prevents confidently injecting the CURRENT topic as the answer to a query asking about a PRIOR one.",
+      "(RESOLVED, Sprint 48 - was a known gap in Sprint 47) A curated-vocabulary word with ZERO grounding in the active topic AND zero grounding in exactly 1 other topic now refuses when demonstrative-anchored (Sprint 47 board/aquascape case) and still trusts recency when not (Sprint 46 mic/ESP32 case) - the two cases are distinguished by query grammar, not vocabulary.",
+      "(RESOLVED, Sprint 49 - was a known gap in Sprint 47/48) Two distinctly-named entities sharing high generic-vocabulary overlap and disagreeing standalone-uppercase-letter differentiators in their own source sentences are no longer silently merged via the coverage > 0.5 lineage-skip - they now compete as distinct candidates, and a tie between them correctly refuses rather than confidently trusting recency.",
+      "(Sprint 50 - no new rule, no rule changed) Every ambiguity decision's outcome (including whether it was a refusal) is now observable as memory_topic_decision.ambiguity_refusal - a read-only projection of the rules above, never a new gate."
+    ],
+    "isolation_rules": [
+      "_active_topic and _topic_history are keyed per-conversation (per conversation_id) - verified via dedicated cross-conversation isolation tests in every sprint since 44, re-verified again in Sprint 47, Sprint 48, Sprint 49, and Sprint 50.",
+      "No alias/entity state is ever shared globally across conversations. Sprint 49's own differentiator extraction and Sprint 50's own event publishes are both purely per-call, stateless reads/projections of existing per-snapshot/per-turn data - neither introduces any new cross-conversation surface.",
+      "Multi-topic isolation within a single conversation verified at 2, 3, and 5 concurrently-live topics.",
+      "(Sprint 50) The new memory_* events themselves carry conversation_id and are correctly filtered per-conversation when subscribed to - verified directly (test_50_cross_conversation_isolation_of_new_events)."
+    ]
+  },
+  "next_recommended_sprint": "P0.15 (Human-Friendly Dashboard UX & Time-Based Automation Conditions) is CLOSED - see docs/change_impact/time_conditions_p0_15.md and ARCHITECTURE_GUARD.md Section 108 for the full writeup. Per the user's own explicit closing instruction (\"Stop after P0.15. Do not begin the next sprint automatically.\"), work STOPPED after P0.15 was fully tested and documented: a user can now restrict an automation to a time-of-day window (including one crossing midnight) through a dedicated, human-friendly Dashboard card, with zero scheduler/polling loop introduced and zero changes to AutomationEngine itself. Days-of-week, dates, sunrise/sunset, weather conditions, IF/ELSE, variables, loops, retries, cancellation, a scheduler, and any AI/natural-language automation authoring were explicitly named OUT of scope by the brief's own Section 15 and must NOT be started without a new, separate user request. P0.14 remains CLOSED as well - see docs/change_impact/ha_script_actions_p0_14.md. Two genuinely separate, pre-existing findings remain recommended as their own future (optional) sprints, NOT part of P0.14's or P0.15's own scope: (1) the real config/automation_rules.json still contains only one user-created rule (\"Back From Work\") - the P0.6-P0.10 diagnostic/safety rules remain gone (deliberate user action via the live dashboard, fully restorable from config/backups/ if wanted - not a defect); (2) the long-running config/backups/ forensic-drift and LLM .env token-param-override test families remain unaddressed, as in every prior sprint's own handover.",
+  "takeover": {
+    "required_reading_order": [
+      "docs/project_handover.md",
+      "docs/project_handover.json",
+      "ARCHITECTURE_GUARD.md (most recent section, #74, Sprint 71)",
+      "docs/testing/regression_baseline.md (LATEST section - '## Sprint 71 (Dashboard Startup & Access Recovery)')",
+      "docs/change_impact/dashboard_startup_recovery.md (latest)",
+      "luno/dashboard/server.py (DashboardBindError, _describe_bind_failure, guarded start()); main.py (guarded dashboard.start() call site)",
+      "tests/test_sprint71_dashboard_startup_recovery.py",
+      "docs/project_handover.md",
+      "docs/project_handover.json",
+      "ARCHITECTURE_GUARD.md (most recent 2-3 numbered sections, currently through #55)"
+    ],
+    "critical_files": [
+      "luno/memory.py",
+      "luno/memory_context.py",
+      "luno/memory_retrieval/",
+      "main_runtime_demo.py",
+      "luno/dashboard/"
+    ],
+    "instructions": [
+      "The repository documentation is the authoritative project memory. The previous chat is not required for takeover.",
+      "Verify the previous sprint's own claimed fixes are ACTUALLY present in the checkout before trusting the documentation - do not assume the handover is correct (Sprint 47/48/49/50's own Phase 0 precedent).",
+      "Run the core regression suite (see tests.targeted above, or project_handover.md section 21) to verify the current baseline BEFORE making any change.",
+      "Reproduce any proposed defect through the real RuntimeDemoConsole, using GENERIC canned replies that never leak the 'correct' answer into a merged topic snapshot.",
+      "Do NOT modify is_active_topic_relevant_to_query()'s original distinct_other_count >= 2 threshold without a fundamentally new mechanism. Do NOT widen Sprint 48's own demonstrative-anchoring gate to fire at distinct_other_count == 0. Do NOT widen Sprint 49's own _extract_entity_differentiator() to accept lowercase letters or digits without a fresh safety analysis.",
+      "Do NOT introduce embeddings, an LLM judge, a second ranking system, an unbounded entity graph, or persistent raw conversation storage.",
+      "Do NOT have any code react to one of Sprint 50's own 5 new Event Bus events to change behavior - they are OBSERVATIONAL ONLY; doing so would create a second decision system.",
+      "Do NOT make luno.replay.replay_case() call a real LLM - its entire value as a deterministic regression tool depends on determinism.",
+      "Do NOT rewrite working architecture without first reproducing a concrete defect - if the current architecture already handles a proposed scenario correctly, document that and move on; a sprint that finds no bug is a successful sprint.",
+      "PREFER investigating a candidate mechanism's own foundation (e.g. a direct tokenizer/regex probe) BEFORE writing implementation code - Sprint 48/49's own successful designs were both reached this way, cheaper than an implement-then-revert cycle.",
+      "If a single pytest -n 4 tests/ invocation exceeds the sandbox's own per-call wall-clock cap (~170-180s), split the file list into 8 roughly-equal chunks and run each as its own tool call.",
+      "Before finishing (or if you run out of context/budget mid-task), update docs/project_handover.md AND docs/project_handover.json with current status, files modified/created, test results, known failures, persistent-state result, and the exact next action.",
+      "Re-run any suspicious TTS/streaming/voice-pipeline-timing test failure in ISOLATION (serial, not under -n 4) before ever classifying it as new vs. pre-existing vs. flaky - and remember flakes don't always reproduce (Sprint 50's own full sweep didn't reproduce Sprint 49's own documented one).",
+      "Do NOT make any code react to the reused llm_error publish (or any Sprint 50 observability event) to change conversation-intelligence behavior - both are observational/recovery signals only, never a second decision system.",
+      "Any inspect.getsource/'could not get source code' test failure under -n 4 parallel execution is a known sandbox artifact (not tied to one specific test file) - re-run in isolation before classifying as new vs. pre-existing.",
+      "Sprint 71 is closed. If picking up the two optional pre-existing items noted in next_recommended_sprint, remember they are genuinely unrelated subsystems (LLM completion-token parameter handling; config/backups checkout-state accumulation) - do not conflate them with dashboard/startup work."
+    ]
+  },
+  "takeover_protocol": [
+    "Read docs/project_handover.md in full.",
+    "Read docs/project_handover.json (this file).",
+    "Read ARCHITECTURE_GUARD.md's most recent 2-3 numbered sections.",
+    "Read the latest 2-3 files under docs/change_impact/*.md.",
+    "Read docs/testing/regression_baseline.md's LATEST section only.",
+    "Inspect the actual source files - source code is authority over documentation if they ever disagree.",
+    "Run the core regression suite listed in project_handover.md section 21 to verify the current baseline.",
+    "Identify the exact next task from project_handover.md section 22, or from a new user brief.",
+    "Do not repeat completed work; do not rewrite working architecture without a reproduced defect.",
+    "Update this file and project_handover.md before finishing or stopping mid-task."
+  ],
+  "verification_note": {
+    "meaning": "last_verified/test_baseline below still reflect the LAST FULL REPOSITORY regression run (predates the Dashboard Turn-State Recovery Part 2 fix, the Sprint 52 HA entity resolution work, Sprint 53, and this Sprint 54 work). This entry documents what WAS actually executed for Sprint 52/53/54 specifically, each in its own minimal-but-real assembled dependency chain, not the full repository.",
+    "sprint52_ha_entity_resolution_status": "code + 29 new tests written AND executed for real this session (pytest, minimal real dependency chain assembled in-sandbox - see docs/change_impact/sprint52_ha_entity_resolution.md's own 'What was and wasn't executed' section for the exact file list and honest scope of what that does and doesn't prove): 68 passed, 0 failed. NOT verified against a real Home Assistant server. NOT run through the full ~2900-test repository sweep.",
+    "required_before_declaring_this_fix_fully_verified": "From the real project root: pytest -q tests/test_sprint52_ha_entity_resolution.py luno/tool_manager/tests/test_real_home_assistant_verification.py tests/test_verification_dashboard.py -- then the full chunked 8-way sweep per docs/testing/regression_baseline.md's own methodology, then a live smoke test against the real Home Assistant server (say a deliberately typo'd device command out loud or via the dashboard and confirm it actually executes / correctly refuses when ambiguous).",
+    "sprint53_memory_session_summary_api_compatibility_status": "code + 13 new tests written AND executed for real this session (pytest, minimal real dependency chain assembled in-sandbox - see docs/change_impact/memory_session_summary_api_compatibility.md's own 'Execution method' section for the exact file list): 93 passed, 3 skipped, 0 failed (13 new + 111 pre-existing across 4 unmodified files). NOT verified against a real, live LLM provider. NOT run through the full ~2900-test repository sweep.",
+    "required_before_declaring_sprint53_fully_verified": "From the real project root, with a real OPENROUTER_API_KEY/OPENROUTER_MODEL configured: pytest -q tests/test_memory_session_summary_api_compatibility.py luno/adapters/tests/test_openrouter_adapter.py luno/adapters/tests/test_llm_manager.py -- then the full chunked 8-way sweep per docs/testing/regression_baseline.md's own methodology, then trigger a real Session Summary (end a wake-word conversation, or say 'rangkum obrolan ini') and confirm the '[Memory] ✓ Session summary saved: ...' log line appears with no error line. CORRECTION (Sprint 54): this live check should be re-run against the ACTUAL production path (luno/adapters/llm/base.py via LLMManagerAdapter, not luno/adapters/openrouter.py) - see sprint54_llm_max_completion_tokens_status below, which supersedes this as the live-verification target for the real Session Summary error.",
+    "sprint54_llm_max_completion_tokens_status": "code + 24 new tests written AND executed for real this session (pytest, minimal real dependency chain assembled in-sandbox - see docs/change_impact/llm_max_completion_tokens_compatibility.md's own 'Tests' section for the exact file list): 165 passed, 3 skipped, 0 failed (24 new + 141 pre-existing across 5 unmodified files, including a regression proving Sprint 53's own OpenRouter adapter fix remains intact). NOT verified against a real, live LLM provider. NOT run through the full ~2900-test repository sweep. Discovered during this sprint's own reconnaissance: luno/bootstrap/adapters.py constructs LLMManagerAdapter (not luno.adapters.openrouter.OpenRouterAdapter) in production - this fix, on luno/adapters/llm/base.py, is on the REAL production call chain for both Session Summary and normal conversational chat.",
+    "required_before_declaring_sprint54_fully_verified": "From the real project root, with a real OPENROUTER_API_KEY/OPENROUTER_MODEL configured: pytest -q tests/test_llm_max_completion_tokens_compatibility.py luno/adapters/llm/tests/test_providers.py luno/adapters/tests/test_llm_manager.py -- then the full chunked 8-way sweep per docs/testing/regression_baseline.md's own methodology, then trigger BOTH a normal conversational chat turn AND a real Session Summary (end a wake-word conversation, or say 'rangkum obrolan ini') and confirm no 'Unsupported parameter: max_tokens ... Use max_completion_tokens instead' error appears in either path.",
+    "p0_5_1_meaning": "This sprint (P0.5.1) is discovery-only and touched no file under luno/, so last_verified/test_baseline above still reflect the last full-repository regression run from P0.5. This entry documents what was actually executed for P0.5.1 specifically: the new tests/test_ha_camera_discovery.py (8/8), tests/test_p0_camera_automation.py (23/23, unmodified) and tests/test_p0_5_camera_integration.py (36/36, unmodified), a spot-check of tests/test_sprint68_mutation_audit_hardening.py (65/67, 2 pre-existing unrelated failures), and one live run of the rewritten ha_camera_discovery.py against this sandbox's real HA_URL/HA_TOKEN (blocked, HTTP 403, honestly reported as HA DISCOVERY: BLOCKED).",
+    "p0_5_2_meaning": "This sprint (P0.5.2) is an audit + read-only prototype sprint and touched no file under luno/, so last_verified/test_baseline above still reflect the last full-repository regression run from P0.5. This entry documents what was actually executed for P0.5.2 specifically: the new tests/test_tapo_camera_event_audit.py (18/18), and re-runs of tests/test_p0_camera_automation.py (23/23), tests/test_p0_5_camera_integration.py (36/36), tests/test_ha_camera_discovery.py (8/8), tests/test_sprint69_tapo_c212_auth.py + tests/test_sprint70_tapo_live_recovery.py (50/50), tests/test_sprint71_camera_patrol.py, and luno/tool_manager/tests/test_camera_ptz.py, all unmodified and all still passing (181/181 baseline, 199/199 after), plus one live run of tapo_camera_event_audit.py against this sandbox's real TAPO_HOST/TAPO_USERNAME/TAPO_PASSWORD (pytapo import failed - ModuleNotFoundError: No module named 'kasa.transports' - honestly reported as RESULT: IMPORT_FAILED).",
+    "p0_5_3_meaning": "This sprint (P0.5.3) modified 4 files under luno/ (vision_bridge.py new, module.py/__init__.py additive, bootstrap/modules.py minimal wiring), so a full-repository regression sweep would normally be warranted; however every directly-relevant suite (Vision/adapters/P0/P0.5/P0.5.1/P0.5.2/automation_engine, 307 tests) plus the new 26 bridge tests were re-run and all pass (333/333), and the modified files are additive-only with zero changes to any pre-existing method body - the risk surface is well-covered by these targeted suites. last_verified/test_baseline above still reflect the last full-repository regression run from P0.5. This entry documents what was actually executed for P0.5.3 specifically: see tests.p0_5_3_targeted above, plus one live-bootstrap attempt (no real camera reachable from this sandbox - honestly reported as such, not glossed over).",
+    "p0_5_4_meaning": "This sprint (P0.5.4) made zero production code changes and added exactly one documentation file, so last_verified/test_baseline above still accurately reflect the last full-repository regression run from P0.5. This entry documents what was actually executed for P0.5.4 specifically: a full re-run of the existing 333-test camera/Vision/automation-engine suite (before and after this sprint's activity, identical results since nothing changed), a direct TCP/DNS reachability probe of TAPO_HOST and the configured HA host (both unreachable, freshly confirmed this sprint), and a direct import check confirming ultralytics is absent from this environment. No live camera event was observed - this is honestly reported in docs/change_impact/camera_automation_p0_5_4.md as NOT PERFORMED for all 6 hardware-dependent tests, never fabricated as PASS.",
+    "p0_5_4_live_meaning": "This sprint (P0.5.4-LIVE) made zero production code changes and added two new standalone files plus one documentation file, so last_verified/test_baseline above still accurately reflect the last full-repository regression run from P0.5. This entry documents what was actually executed for P0.5.4-LIVE specifically: the new 13-test suite for the observer script's own non-hardware logic, a full re-run of the existing 333-test camera/Vision/automation-engine baseline (unchanged), a definitive re-confirmation that agent code execution is always sandboxed (hostname/kernel check + fresh TCP probe), and one simulated (explicitly not real) event-transport smoke test proving the delivered script's own wiring is correct before handing it to the user. No live camera event was observed by the agent - honestly reported as NOT PERFORMED for all 7 hardware-dependent tests in docs/change_impact/camera_automation_p0_5_4_live.md, never fabricated as PASS.",
+    "p0_5_4_fix": "Live status NOT VERIFIED by the agent - the agent's own execution environment structurally cannot reach the user's camera/network. This sprint fixes the tool via a fully code-traced root cause; it does not and must not be reported as a live-hardware PASS.",
+    "p0_6": "Live status NOT PERFORMED by the agent - same structural sandbox constraint as every prior camera sprint. A real-bootstrap, real-Event-Bus, simulated-event smoke test proved the EVENT -> RULE -> MATCH -> LOG chain; this is not hardware verification and must not be reported as one.",
+    "p0_6_1": "Result classification BLOCKED for the agent's own attempt - the agent's execution environment structurally cannot reach the user's camera/network (re-confirmed this sprint: the observer still hard-stops at its pre-existing pre-flight check when run from this sandbox). This must never be reported as PASS, and no simulated-event result may be reported as a LIVE PASS.",
+    "p0_6_2": "Result classification BLOCKED for the agent's own attempt - the agent's execution environment structurally cannot reach the user's camera/Home Assistant/network. This must never be reported as PASS, and no simulated HA call (mocked handler) may be reported as a LIVE PASS.",
+    "p0_6_2_fix": "Result classification BLOCKED for the agent's own attempt - the agent's execution environment structurally cannot verify whether the live Conv.bn symptom is actually resolved on the user's real machine (no ultralytics installed, no network route to the camera). This must never be reported as PASS. The Section 13 silent-failure-masking code defect (a real detector failure looking identical to 'legitimately saw nobody') IS fixed and IS verified by tests/test_p0_6_2_fix_vision_runtime_parity.py in this sandbox - that part is a genuine, verified PASS; only the live hardware symptom itself remains BLOCKED.",
+    "p0_6_3": "Result classification BLOCKED for the agent's own live-hardware attempt - the agent's execution environment structurally cannot run the real walk-test (no ultralytics installed, no network route to the camera). This must never be reported as PASS. The architecture audit (no duplicate Vision pipeline), the Section 13 presence-loop detector-failure fix, and all 31 new tests ARE genuine, verified PASSes in this sandbox - only the live dashboard-plus-automation walk-test itself remains BLOCKED.",
+    "p0_7": "Not live-verified against real camera hardware by the agent (BLOCKED - no ultralytics, no network route to the camera in this sandbox, same as every prior sprint in this line). Everything provable from code/tests in this sandbox (VisionContext unit tests, state-preservation-on-detector-failure tests, bridge wiring tests, the new greater_equal operator, the new rule end-to-end through the real bootstrap stack, full regression) is a genuine, verified PASS. The user must run the real main.py, get 2+ people in frame, and confirm camera_multiple_people_log's log line appears in the AutomationEngine log alongside the existing camera_human_detected_log line.",
+    "p0_8_0": "Not live-verified against real Home Assistant hardware by the agent (BLOCKED - no network route to a real Home Assistant instance in this sandbox, same as every prior sprint in this line). Everything provable from code/tests in this sandbox (camera_action_safety.py's own unit tests covering every allow/block code path, the real-bootstrap Event Bus tests simulating a real camera_automation.camera_event through the full chain to a mocked HA dispatcher, cooldown tests, state-aware-skip tests with an injected fake reader, non-camera-automation-unaffected tests, attribution tests, architecture-guard tests, full regression) is a genuine, verified PASS. REAL HOME ASSISTANT ACTIONS WERE NOT PERFORMED - every test routes through MockHomeAssistantHandler; register_real_tool_handlers() is never called by this sprint's own code or tests. The user must run the real main.py with HOME_ASSISTANT_BACKEND=real, point camera_test_automation_safety_action at a real harmless test light, walk into camera view, and confirm the light actually turns on - see docs/change_impact/camera_automation_p0_8.md Section 13 for the exact P0.8.1 procedure.",
+    "p0_8_1": "Not live-verified against real Home Assistant/camera hardware by the agent (BLOCKED - the live script's own pre-flight hard-stopped in this sandbox: network unreachable to TAPO_HOST/the HA host, ultralytics not installed, CAMERA_AUTOMATION_ENABLED resolves to False in this checkout - same structural sandbox limitation as every prior 'LIVE' sprint in this line, verbatim captured in docs/change_impact/camera_automation_p0_8_1.md Section 5). Everything provable from code/tests in this sandbox (the override's full scoping guarantees, the pre-flight/test-light-resolution logic, a real-bootstrap end-to-end proof with a mocked Home Assistant backend showing the override correctly redirects a real AutomationEngine dispatch) is a genuine, verified PASS. REAL HOME ASSISTANT ACTIONS WERE NOT PERFORMED - no light was turned on or off by the agent this sprint. The user must run 'CAMERA_AUTOMATION_TEST_LIGHT_ENTITY=light.<real light> CAMERA_AUTOMATION_ENABLED=true python luno_live_p0_8_1_verification.py' on their real machine and walk through the six prompted tests - see that same document's Section 13 for the exact procedure.",
+    "p0_14_meaning": "REAL_HA_TEST = NOT_PERFORMED (Section 21 of the P0.14 brief, honestly recorded, never fabricated) - this sandbox has no HOME_ASSISTANT_BACKEND=real environment and no reachable live Home Assistant instance (same structural sandbox limitation as every prior camera/HA sprint in this project). Everything provable from code/tests in this sandbox is a genuine, verified PASS: 58/58 new tests in tests/test_p0_14_ha_script_actions.py (sections A-T plus a concurrency test proving a wait_until in one automation never blocks an unrelated one), a real end-to-end smoke test via the real bootstrap stack (mock Home Assistant backend) exercising a 7-step sequence (call_service/run_script-with-variables/activate_scene/set_brightness/set_color/toggle/condition -> COMPLETED), a stop_automation sequence (-> CANCELLED, 2/3 steps ran), and a wait_until with no state reader bound (-> TIMEOUT, honest ha_state_reader_unavailable code, never a fabricated match), plus a full 153-file repository regression sweep. No real Home Assistant service call, no real script run, no real scene activation, and no physical WLED/light change was performed or observed by the agent this sprint. If a real HA instance/credentials are ever wired into this environment, tests/test_p0_14_ha_script_actions.py::test_U1_real_home_assistant_smoke_test_is_honestly_marked_not_performed should be replaced with a real turn_on -> run_script -> activate_scene -> read-state-back sequence against real test entities, per the brief's own Section 21 procedure."
+  }
+}

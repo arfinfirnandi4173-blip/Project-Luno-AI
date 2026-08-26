@@ -1,0 +1,116 @@
+{
+  "fps": 60,
+  "seed": 0,
+  "body_focus": "full_body",
+  "noise": { "seed": 0, "octaves": 3, "persistence": 0.5, "lacunarity": 2.0 },
+  "breathing": {
+    "speed": 0.22,
+    "chest_amplitude_deg": 2.2,
+    "shoulder_amplitude_deg": 0.5,
+    "neck_amplitude_deg": 0.4,
+    "head_amplitude_deg": 0.3,
+    "noise_influence": 0.35
+  },
+  "weight_shift": {
+    "speed": 0.08,
+    "hip_yaw_deg": 2.5,
+    "hip_roll_deg": 1.6,
+    "spine_counter_ratio": 0.5,
+    "shoulder_counter_ratio": 0.3,
+    "foot_lift_deg": 1.2,
+    "noise_influence": 0.4
+  },
+  "micro_motion": {
+    "global_amplitude_scale": 1.0,
+    "spine_deg": 0.4,
+    "hand_deg": 0.7,
+    "knee_deg": 0.6,
+    "ankle_deg": 0.5,
+    "speed": 0.6,
+    "include_lower_body": true
+  },
+  "arms": {
+    "sway_amplitude_deg": 3.0,
+    "sway_speed": 0.35,
+    "forward_amplitude_deg": 1.8,
+    "elbow_amplitude_deg": 2.0,
+    "elbow_speed": 0.3
+  },
+  "legs": {
+    "thigh_amplitude_deg": 1.0,
+    "thigh_speed": 0.3,
+    "toe_amplitude_deg": 2.5,
+    "toe_speed": 0.4
+  },
+  "rest_pose": {
+    "upper_arm_drop_deg": -75.0,
+    "upper_arm_drop_axis": "roll_z"
+  },
+  "head": {
+    "yaw_range_deg": 22.0,
+    "pitch_range_deg": 10.0,
+    "roll_influence": 0.4,
+    "retarget_min_s": 2.0,
+    "retarget_max_s": 5.0,
+    "ease_speed": 2.2,
+    "look_at_camera_chance": 0.25,
+    "face_forward_when_talking": true
+  },
+  "eyes": {
+    "saccade_min_s": 0.9,
+    "saccade_max_s": 3.2,
+    "saccade_range_deg": 8.0,
+    "wander_range_deg": 5.0,
+    "wander_speed": 0.3,
+    "tracking_smooth_speed": 6.0,
+    "look_down_bias_deg": 1.0,
+    "saccade_snap_speed": 9.0,
+    "talking_range_scale": 0.4
+  },
+  "blink": {
+    "min_interval_s": 2.2,
+    "max_interval_s": 6.5,
+    "close_duration_s": 0.09,
+    "open_duration_s": 0.12,
+    "double_blink_chance": 0.12,
+    "slow_blink_chance": 0.10,
+    "slow_blink_multiplier": 3.0,
+    "sleepy_blink_chance": 0.05,
+    "sleepy_hold_s": 0.35
+  },
+  "fingers": {
+    "base_curl_deg": { "Proximal": -10.0, "Intermediate": -14.0, "Distal": -8.0 },
+    "wiggle_amplitude_deg": 2.5,
+    "open_close_chance_per_min": 4.0,
+    "open_close_amplitude_deg": 14.0,
+    "open_close_duration_s": 1.1
+  },
+  "facial": {
+    "smile_center": 0.12,
+    "smile_amplitude": 0.10,
+    "smile_speed": 0.05,
+    "brow_amplitude": 0.06,
+    "brow_speed": 0.07,
+    "cheek_amplitude": 0.04,
+    "cheek_speed": 0.045
+  },
+  "random_events": {
+    "min_interval_s": 10.0,
+    "max_interval_s": 40.0,
+    "enabled_events": [
+      "hair_touch", "look_at_sky", "deep_breath", "stretch",
+      "shift_feet", "cheek_touch", "play_with_hands", "head_tilt"
+    ]
+  },
+  "state_machine": {
+    "default_transition_s": 0.6,
+    "sleepy_transition_s": 1.4
+  },
+  "vmc": {
+    "host": "127.0.0.1",
+    "port": 39539,
+    "send_rate_hz": 60,
+    "send_ok_heartbeat": true,
+    "ok_heartbeat_interval_s": 1.0
+  }
+}

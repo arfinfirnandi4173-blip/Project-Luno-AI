@@ -1,0 +1,10 @@
+{
+  "cameras": {
+    "tapo_c212": {
+      "camera_entity": null,
+      "motion_entity": null,
+      "human_entity": null,
+      "availability_entity": null
+    }
+  }
+}

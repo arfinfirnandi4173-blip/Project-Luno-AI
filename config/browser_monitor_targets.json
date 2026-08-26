@@ -1,0 +1,23 @@
+[
+  {
+    "Home Asisstant": "Home Assistant",
+    "url": "http://192.168.1.14:8123",
+    "type": "home_assistant",
+    "enabled": true,
+    "read_only": true
+  },
+  {
+    "portainer": "Portainer",
+    "url": "http://192.168.1.14:9000",
+    "type": "portainer",
+    "enabled": false,
+    "read_only": true
+  },
+  {
+    "grafana": "Grafana",
+    "url": "http://192.168.1.14:3000",
+    "type": "grafana",
+    "enabled": false,
+    "read_only": true
+  }
+]

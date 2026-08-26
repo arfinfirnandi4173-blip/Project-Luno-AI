@@ -1,0 +1,67 @@
+[
+  {
+    "id": "0affe10a",
+    "text": "User has created an aquascape",
+    "created_at": "2026-07-17T17:54:59",
+    "category": "other",
+    "history": [],
+    "source": "user_explicit",
+    "schema_version": 4,
+    "retrieval_count": 102,
+    "last_retrieved_at": "2026-08-21T18:34:24",
+    "usefulness_score": 0.7,
+    "retrieval_success_count": 101,
+    "importance": 3
+  },
+  {
+    "id": "cd88a414",
+    "text": "User has an RGB computer",
+    "created_at": "2026-07-17T17:59:51",
+    "category": "other",
+    "history": [],
+    "source": "user_explicit",
+    "schema_version": 4,
+    "retrieval_count": 11,
+    "last_retrieved_at": "2026-08-20T21:12:25",
+    "usefulness_score": 0.7,
+    "retrieval_success_count": 10,
+    "importance": 3
+  },
+  {
+    "id": "4189b276",
+    "text": "User has an RGB strip",
+    "created_at": "2026-07-18T16:39:17",
+    "category": "technical_fact",
+    "history": [],
+    "source": "user_explicit",
+    "schema_version": 4,
+    "retrieval_count": 13,
+    "last_retrieved_at": "2026-08-20T21:12:25",
+    "usefulness_score": 0.7,
+    "retrieval_success_count": 12,
+    "importance": 3
+  },
+  {
+    "id": "646250ec",
+    "text": "User is working on adding features and creating a 3D model for Luno",
+    "created_at": "2026-07-22T01:44:33",
+    "category": "other",
+    "history": [],
+    "source": "user_explicit",
+    "schema_version": 4,
+    "retrieval_count": 16,
+    "last_retrieved_at": "2026-08-16T20:26:24",
+    "usefulness_score": 0.7,
+    "retrieval_success_count": 16,
+    "importance": 3
+  },
+  {
+    "id": "30586215",
+    "text": "Vinn is working with Unity for 3D animation and coding",
+    "created_at": "2026-07-23T22:24:38",
+    "category": "other",
+    "history": [],
+    "source": "user_explicit",
+    "schema_version": 4
+  }
+]

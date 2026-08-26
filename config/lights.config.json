@@ -1,0 +1,23 @@
+{
+  "Main Lamp": {
+    "entity_id": "light.main_light",
+    "max_brightness": 125,
+    "fade_transition": 0,
+    "aliases": ["lampu utama"],
+    "area": "kamar"
+  },
+  "RGB Strip": {
+    "entity_id": "light.wled",
+    "max_brightness": 160,
+    "fade_transition": 8,
+    "aliases": ["RGB Strip"],
+    "area": "kamar"
+  },
+  "RGB Computer": {
+    "entity_id": "light.komputer",
+    "max_brightness": 50,
+    "fade_transition": 3,
+    "aliases": ["RGB komputer"],
+    "area": "kamar"
+  }
+}

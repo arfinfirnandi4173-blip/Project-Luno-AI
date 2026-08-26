@@ -1,0 +1,26 @@
+{
+  "hot": {
+    "action": "turn_on",
+    "device": "AC Kamar",
+    "ask": "Kayaknya kamu kepanasan, mau aku nyalain AC?",
+    "decline_ack": "Oke, nggak jadi."
+  },
+  "cold": {
+    "action": "turn_off",
+    "device": "AC Kamar",
+    "ask": "Kamu kedinginan? Mau aku matiin AC-nya?",
+    "decline_ack": "Oke, AC tetap nyala."
+  },
+  "dark": {
+    "action": "turn_on",
+    "device": "Main Lamp",
+    "ask": "Gelap ya? Mau aku nyalain lampunya?",
+    "decline_ack": "Oke, nggak jadi."
+  },
+  "sleepy": {
+    "action": "turn_off",
+    "device": ["Main Lamp", "RGB Strip", "RGB Computer"],
+    "ask": "Ngantuk ya? Mau aku matiin lampu-lampunya buat tidur?",
+    "decline_ack": "Oke, lampu tetap nyala."
+  }
+}

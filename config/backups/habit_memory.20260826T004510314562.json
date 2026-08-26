@@ -1,0 +1,266 @@
+{
+  "patterns": [
+    {
+      "time_bucket": "morning",
+      "action": "turn_off",
+      "target": "light.wled",
+      "days_seen": [
+        "2026-08-04",
+        "2026-08-21",
+        "2026-08-22",
+        "2026-08-23",
+        "2026-08-24"
+      ],
+      "count": 40,
+      "first_seen": "2026-08-04T08:43:40.480617+00:00",
+      "last_seen": "2026-08-24T11:57:56.759020+00:00",
+      "asked_at": "2026-08-25T07:41:14.785808+00:00",
+      "status": "asked"
+    },
+    {
+      "time_bucket": "afternoon",
+      "action": "turn_on",
+      "target": "light.wled",
+      "days_seen": [
+        "2026-08-04",
+        "2026-08-11",
+        "2026-08-20",
+        "2026-08-23",
+        "2026-08-24"
+      ],
+      "count": 11,
+      "first_seen": "2026-08-04T12:30:56.247238+00:00",
+      "last_seen": "2026-08-24T12:05:33.416982+00:00",
+      "asked_at": "2026-08-23T13:46:09.385686+00:00",
+      "status": "confirmed"
+    },
+    {
+      "time_bucket": "afternoon",
+      "action": "turn_on",
+      "target": "switch.fish_light",
+      "days_seen": [
+        "2026-08-04"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-04T13:00:25.087228+00:00",
+      "last_seen": "2026-08-04T13:00:25.087228+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "afternoon",
+      "action": "turn_off",
+      "target": "light.wled",
+      "days_seen": [
+        "2026-08-04",
+        "2026-08-23",
+        "2026-08-24"
+      ],
+      "count": 9,
+      "first_seen": "2026-08-04T15:59:22.564383+00:00",
+      "last_seen": "2026-08-24T12:12:53.950587+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "afternoon",
+      "action": "turn_off",
+      "target": "switch.fish_light",
+      "days_seen": [
+        "2026-08-04"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-04T16:40:06.861393+00:00",
+      "last_seen": "2026-08-04T16:40:06.861393+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "evening",
+      "action": "turn_off",
+      "target": "light.wled",
+      "days_seen": [
+        "2026-08-04",
+        "2026-08-08"
+      ],
+      "count": 3,
+      "first_seen": "2026-08-04T18:15:13.727573+00:00",
+      "last_seen": "2026-08-08T17:13:38.894441+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "evening",
+      "action": "turn_off",
+      "target": "light.kamar_tidur_light_bulb",
+      "days_seen": [
+        "2026-08-04"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-04T18:28:42.327361+00:00",
+      "last_seen": "2026-08-04T18:28:42.327361+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "night",
+      "action": "turn_off",
+      "target": "light.kamar_tidur_light_bulb",
+      "days_seen": [
+        "2026-08-05"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-05T01:06:51.848220+00:00",
+      "last_seen": "2026-08-05T01:06:51.848220+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "morning",
+      "action": "turn_on",
+      "target": "switch.fish_light",
+      "days_seen": [
+        "2026-08-05"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-05T08:07:41.519343+00:00",
+      "last_seen": "2026-08-05T08:07:41.519343+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "evening",
+      "action": "turn_on",
+      "target": "light.wled",
+      "days_seen": [
+        "2026-08-08"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-08T17:12:33.324716+00:00",
+      "last_seen": "2026-08-08T17:12:33.324716+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "afternoon",
+      "action": "turn_on",
+      "target": "script.gaming_mode_on",
+      "days_seen": [
+        "2026-08-20"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-20T14:10:29.209737+00:00",
+      "last_seen": "2026-08-20T14:10:29.209737+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "morning",
+      "action": "turn_on",
+      "target": "switch.tasmota_tasmota2",
+      "days_seen": [
+        "2026-08-21"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-21T11:34:24.719294+00:00",
+      "last_seen": "2026-08-21T11:34:24.719294+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "morning",
+      "action": "turn_on",
+      "target": "light.wled",
+      "days_seen": [
+        "2026-08-21",
+        "2026-08-22",
+        "2026-08-23",
+        "2026-08-24"
+      ],
+      "count": 45,
+      "first_seen": "2026-08-21T11:53:00.794443+00:00",
+      "last_seen": "2026-08-24T11:58:18.303338+00:00",
+      "asked_at": "2026-08-25T07:41:14.785808+00:00",
+      "status": "asked"
+    },
+    {
+      "time_bucket": "morning",
+      "action": "turn_on",
+      "target": "light.main_light",
+      "days_seen": [
+        "2026-08-21"
+      ],
+      "count": 3,
+      "first_seen": "2026-08-21T11:53:32.789414+00:00",
+      "last_seen": "2026-08-21T11:54:46.629043+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "afternoon",
+      "action": "turn_on",
+      "target": "light.main_light",
+      "days_seen": [
+        "2026-08-21"
+      ],
+      "count": 2,
+      "first_seen": "2026-08-21T12:01:26.887695+00:00",
+      "last_seen": "2026-08-21T12:01:57.064040+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "evening",
+      "action": "turn_on",
+      "target": "script.gaming_mode_on",
+      "days_seen": [
+        "2026-08-21"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-21T17:12:10.510593+00:00",
+      "last_seen": "2026-08-21T17:12:10.510593+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "night",
+      "action": "turn_on",
+      "target": "light.wled",
+      "days_seen": [
+        "2026-08-22",
+        "2026-08-23"
+      ],
+      "count": 5,
+      "first_seen": "2026-08-22T00:39:37.281362+00:00",
+      "last_seen": "2026-08-23T02:22:31.332817+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "night",
+      "action": "turn_off",
+      "target": "light.wled",
+      "days_seen": [
+        "2026-08-23"
+      ],
+      "count": 2,
+      "first_seen": "2026-08-23T02:17:08.491263+00:00",
+      "last_seen": "2026-08-23T02:22:36.780698+00:00",
+      "asked_at": null,
+      "status": "observing"
+    },
+    {
+      "time_bucket": "afternoon",
+      "action": "turn_off",
+      "target": "switch.tasmota_tasmota2",
+      "days_seen": [
+        "2026-08-25"
+      ],
+      "count": 1,
+      "first_seen": "2026-08-25T12:50:06.111925+00:00",
+      "last_seen": "2026-08-25T12:50:06.111925+00:00",
+      "asked_at": null,
+      "status": "observing"
+    }
+  ]
+}

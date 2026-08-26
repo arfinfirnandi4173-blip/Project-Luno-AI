@@ -1,0 +1,111 @@
+name: Regression (fast suite + Emotion Engine)
+
+# Minimal, deterministic regression guard - see ARCHITECTURE_GUARD.md §5/§14.
+#
+# Scope: runs the FAST suite (`luno/` package tests, 806/808 passing as of
+# the Regression & Architecture Guard sprint baseline - see
+# docs/testing/regression_baseline.md) PLUS, as of the Emotion Engine CI
+# Coverage sprint, the Emotion Engine's own test coverage:
+#   - tests/test_emotion_engine.py (40 unit tests - pure rule-based
+#     estimator/tracker/policy/prompt-block logic, no I/O)
+#   - two specific, named tests/test_runtime_demo.py node IDs - the
+#     Emotion Engine's end-to-end production-bridge integration scenarios
+#     added in the Emotion Engine sprint. The REST of test_runtime_demo.py
+#     is intentionally NOT run here: it is a large end-to-end file (57
+#     scenarios) and running the whole thing was judged an unnecessary
+#     scope expansion for what this sprint asked for (see Emotion Engine
+#     CI Coverage sprint brief §4) - only the 2 scenarios that actually
+#     exercise the Emotion Engine are targeted, by exact node ID (never
+#     guessed - taken directly from `grep -n "^def test_"` against the
+#     file).
+#
+# All three of the above were confirmed, locally, to require NO real
+# credentials, no physical microphone/speakers, no GPU, no Home
+# Assistant/Unity/VRM, and no external network access before being added
+# here: `tests/test_emotion_engine.py` exercises pure Python (regex/
+# dataclasses) with zero I/O, and both targeted `test_runtime_demo.py`
+# scenarios go through `RuntimeDemoConsole` with a `MockOpenRouterClient`
+# (Fish Audio is also mocked by that console's own default - see that
+# file's own module docstring). Verified empirically, not just by
+# inspection: all three were run in a FRESH virtualenv containing ONLY
+# this workflow's exact `pip install` line below (nothing extra) and
+# passed cleanly.
+#
+# Deliberately excluded: the rest of the `tests/` directory beyond the 2
+# node IDs above. That directory mixes deterministic tests with
+# genuinely environment-specific ones (real .env credentials, physical
+# microphone/PortAudio, missing `legacy_main.py`) - see
+# ARCHITECTURE_GUARD.md §6 for the exact list and confirmed root causes.
+# Running all of it here would produce red builds for reasons unrelated
+# to code quality, not "silently exclude deterministic tests" - the
+# exclusion and its reasoning are documented here and in
+# ARCHITECTURE_GUARD.md, not hidden.
+#
+# Dependency install: `requirements.txt` bundles hardware/native-library
+# dependent packages (faster-whisper, sounddevice + PortAudio, ultralytics,
+# playwright, ...) alongside its own explicitly-labeled "Core" section.
+# This job installs ONLY a small, hand-picked, lightweight set - `pytest`
+# itself is NOT listed in requirements.txt (a real gap, noted here rather
+# than silently worked around) so it is installed explicitly.
+#
+# `ormsgpack>=1.5.0` (CI Dependency Integrity sprint): NOT part of
+# requirements.txt's "Core" section - it lives in that file's own
+# separate, correctly-labeled "Fish Audio CLOUD TTS API (opsional)"
+# section, where it was ALREADY correctly declared before this sprint.
+# It is added here, matching that exact version constraint, because
+# `luno/adapters/tests/test_fish_audio_api.py` - part of `luno/`, which
+# this job already runs in full - directly imports and exercises the
+# real msgpack-encoding code path in `luno/adapters/fish_audio_real.py`
+# (a SOFT/guarded import there - `try: import ormsgpack except
+# ImportError: _ormsgpack = None` - so its ABSENCE never breaks `import
+# luno.adapters` or any other module; the Fish Audio Cloud API engine
+# simply auto-disables to Mock TTS if it's missing, exactly as
+# requirements.txt's own comment describes). Without it, a truly clean
+# venv fails exactly those 23 tests - confirmed by rebuilding a
+# from-scratch venv (twice, for reproducibility) with only this job's
+# install line and nothing else. It is a small, pure-Python-C-extension
+# package with no native system library, no GPU, and no network access
+# needed to install or use it - unlike the genuinely heavy/hardware
+# packages this job continues to deliberately avoid (faster-whisper,
+# sounddevice+PortAudio, opencv-python, ultralytics, playwright,
+# pytapo). See ARCHITECTURE_GUARD.md's "Dependency Integrity" section
+# and docs/change_impact/ci_dependency_integrity.md for the full root-
+# cause writeup and dependency classification.
+#
+# NOTE: this workflow has still not been validated against a live GitHub
+# Actions runner (none was available while authoring or updating it) -
+# treat its first real run as a fresh signal, not a guarantee. See
+# ARCHITECTURE_GUARD.md §14.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  fast-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install core dependencies (requirements.txt's own "Core" section) + pytest + ormsgpack
+        run: |
+          pip install python-dotenv requests websockets openai pytest "ormsgpack>=1.5.0"
+
+      - name: Run fast regression suite (luno/ package tests)
+        run: |
+          python -m pytest luno/ -q
+
+      - name: Run Emotion Engine unit tests (tests/test_emotion_engine.py)
+        run: |
+          python -m pytest tests/test_emotion_engine.py -q
+
+      - name: Run Emotion Engine runtime integration tests (targeted, tests/test_runtime_demo.py)
+        run: |
+          python -m pytest \
+            "tests/test_runtime_demo.py::test_llm_context_includes_emotional_context_alongside_persona_and_verified_facts_end_to_end" \
+            "tests/test_runtime_demo.py::test_llm_context_omits_emotional_context_for_neutral_technical_utterance_end_to_end" \
+            -q

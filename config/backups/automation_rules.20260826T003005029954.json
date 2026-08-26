@@ -1,0 +1,59 @@
+{
+  "occupancy_test_log": {
+    "name": "Room occupied -> log occupancy.state context (P0.10 - diagnostic only, log-only, no device action)",
+    "enabled": true,
+    "trigger": "event:room_occupied",
+    "conditions": [
+      {
+        "type": "equals",
+        "target": "occupancy.state",
+        "value": "occupied"
+      }
+    ],
+    "actions": [
+      {
+        "type": "automation.log",
+        "parameters": {
+          "message": "room_occupied fired and occupancy.state == occupied (P0.10 diagnostic, log-only, no device action)"
+        }
+      }
+    ],
+    "cooldown_seconds": 0.0,
+    "execution_policy": "no_partial",
+    "sequence": [],
+    "description": "",
+    "created_at": null,
+    "updated_at": null
+  },
+  "occupancy_long_presence_test": {
+    "name": "Occupancy changed + presence >= 30s -> log long-presence context (P0.10 - diagnostic only, log-only, no device action)",
+    "enabled": true,
+    "trigger": "event:occupancy_changed",
+    "conditions": [
+      {
+        "type": "equals",
+        "target": "occupancy.state",
+        "value": "occupied"
+      },
+      {
+        "type": "greater_equal",
+        "target": "occupancy.presence_duration_seconds",
+        "value": 30
+      }
+    ],
+    "actions": [
+      {
+        "type": "automation.log",
+        "parameters": {
+          "message": "occupancy_changed fired with occupancy.state == occupied and occupancy.presence_duration_seconds >= 30 (P0.10 diagnostic, log-only, no device action)"
+        }
+      }
+    ],
+    "cooldown_seconds": 0.0,
+    "execution_policy": "no_partial",
+    "sequence": [],
+    "description": "",
+    "created_at": null,
+    "updated_at": null
+  }
+}

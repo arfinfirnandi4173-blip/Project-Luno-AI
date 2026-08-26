@@ -1,0 +1,1 @@
+This directory holds Sprint 50 real-world test case JSON files with status="candidate". See luno/test_capture.py and luno/replay.py. Only files under approved/ are ever swept into automated regression by tests/test_replay_engine.py.
